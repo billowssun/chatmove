@@ -1,0 +1,10 @@
+# build output (the website ships its own copy of the app)
+*.exe
+!website/*.exe
+
+# local sync config, state and backups: may contain WebDAV passwords
+chatsync.json
+*.state.json
+chatsync.log
+conflicts/
+*.zip

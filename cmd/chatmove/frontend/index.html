@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>对话搬家</title>
+<style>
+:root {
+  --bg: #f7f5f1;
+  --bg-glow-a: rgba(232, 135, 95, .16);
+  --bg-glow-b: rgba(31, 143, 111, .13);
+  --surface: #ffffff;
+  --surface-2: #faf8f5;
+  --line: rgba(30, 24, 18, .08);
+  --line-strong: rgba(30, 24, 18, .14);
+  --text: #1d1a16;
+  --text-2: #6b645b;
+  --text-3: #9b948a;
+  --shadow: 0 1px 2px rgba(40, 30, 20, .05), 0 8px 24px rgba(40, 30, 20, .06);
+  --shadow-lift: 0 2px 4px rgba(40, 30, 20, .06), 0 18px 40px rgba(40, 30, 20, .12);
+  --claude: #d97757;
+  --claude-2: #b9573a;
+  --claude-soft: rgba(217, 119, 87, .12);
+  --gpt: #1f8f6f;
+  --gpt-2: #0f644e;
+  --gpt-soft: rgba(31, 143, 111, .12);
+  --ok: #2f9e5b;
+  --warn: #c7811c;
+  --danger: #c94a3a;
+  --radius: 20px;
+  --accent: var(--claude);
+  --accent-2: var(--claude-2);
+  --accent-soft: var(--claude-soft);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161412;
+    --bg-glow-a: rgba(217, 119, 87, .14);
+    --bg-glow-b: rgba(31, 143, 111, .12);
+    --surface: #211e1b;
+    --surface-2: #1b1917;
+    --line: rgba(255, 245, 230, .08);
+    --line-strong: rgba(255, 245, 230, .15);
+    --text: #f3eee7;
+    --text-2: #b0a89d;
+    --text-3: #7e776d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, .35), 0 18px 40px rgba(0, 0, 0, .4);
+    --claude-soft: rgba(217, 119, 87, .18);
+    --gpt: #34b38c;
+    --gpt-soft: rgba(52, 179, 140, .16);
+  }
+}
+body[data-app="codex"] { --accent: var(--gpt); --accent-2: var(--gpt-2); --accent-soft: var(--gpt-soft); }
+
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  background:
+    radial-gradient(900px 500px at 8% -10%, var(--bg-glow-a), transparent 60%),
+    radial-gradient(800px 500px at 100% 110%, var(--bg-glow-b), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+
+.shell { height: 100%; display: flex; flex-direction: column; padding: 34px 44px 22px; }
+header { display: flex; align-items: center; gap: 14px; }
+.mark { width: 42px; height: 42px; flex: none; }
+.brand h1 { font-size: 20px; font-weight: 650; letter-spacing: .02em; }
+.brand p { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+.stage { flex: 1; position: relative; margin-top: 26px; }
+.view {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
+  opacity: 0; transform: translateY(10px) scale(.99); pointer-events: none;
+  transition: opacity .28s ease, transform .32s cubic-bezier(.2, .8, .2, 1);
+}
+.view.on { opacity: 1; transform: none; pointer-events: auto; }
+
+/* home */
+.lead { font-size: 15px; color: var(--text-2); margin-bottom: 18px; text-align: center; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.card {
+  position: relative; text-align: left; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 28px 28px 24px; min-height: 248px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s, border-color .25s;
+}
+.card::after {
+  content: ""; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px; border-radius: 50%;
+  background: var(--glow); opacity: .5; filter: blur(10px); transition: opacity .3s, transform .4s;
+}
+.card[data-app="claude"] { --c: var(--claude); --c2: var(--claude-2); --glow: var(--claude-soft); }
+.card[data-app="codex"] { --c: var(--gpt); --c2: var(--gpt-2); --glow: var(--gpt-soft); }
+.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--c) 35%, transparent); }
+.card:hover::after { opacity: 1; transform: scale(1.15); }
+.card:active { transform: translateY(-1px) scale(.995); }
+.card:focus-visible { outline: 2px solid var(--c); outline-offset: 3px; }
+.icon {
+  width: 58px; height: 58px; border-radius: 17px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(145deg, var(--c), var(--c2));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--c) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25);
+  position: relative; z-index: 1;
+}
+.icon svg { width: 30px; height: 30px; }
+.card h2 { font-size: 26px; font-weight: 680; margin-top: 22px; letter-spacing: .01em; position: relative; z-index: 1; }
+.card .sub { font-size: 13.5px; color: var(--text-2); margin-top: 4px; position: relative; z-index: 1; }
+.card .meta {
+  margin-top: auto; padding-top: 18px; display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; color: var(--text-2); position: relative; z-index: 1;
+}
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 7px; vertical-align: 1px; }
+.dot.off { background: var(--text-3); }
+.go {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface-2); border: 1px solid var(--line); transition: background .25s, color .25s, transform .25s;
+}
+.card:hover .go { background: var(--c); color: #fff; border-color: transparent; transform: translateX(2px); }
+.go svg { width: 16px; height: 16px; }
+
+/* choose */
+.back {
+  position: absolute; top: 0; left: 0; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; color: var(--text-2); padding: 7px 12px 7px 8px; border-radius: 10px;
+}
+.back:hover { background: var(--line); color: var(--text); }
+.back svg { width: 16px; height: 16px; }
+.choose-head { display: flex; align-items: center; gap: 16px; justify-content: center; margin-bottom: 26px; }
+.choose-head .icon { width: 50px; height: 50px; border-radius: 15px; --c: var(--accent); --c2: var(--accent-2); }
+.choose-head .icon svg { width: 26px; height: 26px; }
+.choose-head h2 { font-size: 22px; font-weight: 660; }
+.choose-head p { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 700px; margin: 0 auto; width: 100%; }
+.action {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; text-align: left;
+  box-shadow: var(--shadow); transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s, border-color .22s;
+}
+.action:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.action .glyph {
+  width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); transition: background .22s, color .22s;
+}
+.action:hover .glyph { background: var(--accent); color: #fff; }
+.action .glyph svg { width: 22px; height: 22px; }
+.action h3 { font-size: 18px; font-weight: 650; margin-top: 16px; }
+.action p { font-size: 13px; line-height: 1.65; color: var(--text-2); margin-top: 6px; }
+
+/* work */
+.center { align-items: center; text-align: center; }
+.ring { width: 168px; height: 168px; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--line-strong); }
+.ring .bar { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .25s ease; }
+.ring .pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 38px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ring .pct small { font-size: 18px; color: var(--text-2); margin-left: 2px; }
+.work-title { font-size: 18px; font-weight: 620; margin-top: 26px; }
+.work-sub { font-size: 13px; color: var(--text-2); margin-top: 6px; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.spin .bar { animation: spin 1.1s linear infinite; transform-origin: 50% 50%; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* done / error */
+.badge { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; }
+.badge.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.badge.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.badge.bad { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+.badge svg { width: 40px; height: 40px; }
+.badge.ok path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw .5s .15s ease forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.result-title { font-size: 22px; font-weight: 660; margin-top: 20px; }
+.result-sub { font-size: 13.5px; color: var(--text-2); margin-top: 8px; max-width: 520px; line-height: 1.65; word-break: break-all; }
+.stats { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 20px; min-width: 104px; box-shadow: var(--shadow); }
+.stat b { display: block; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--text-2); }
+.note { margin-top: 16px; font-size: 12.5px; color: var(--warn); max-width: 520px; line-height: 1.6; }
+.buttons { display: flex; gap: 12px; margin-top: 26px; }
+.btn { padding: 11px 22px; border-radius: 12px; font-size: 14px; font-weight: 560; transition: transform .15s, background .2s, box-shadow .2s; }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 32%, transparent); }
+.btn.primary:hover { background: var(--accent-2); }
+.btn.ghost { background: var(--surface); border: 1px solid var(--line-strong); }
+.btn.ghost:hover { background: var(--surface-2); }
+
+footer { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; color: var(--text-3); margin-top: 14px; }
+footer svg { width: 13px; height: 13px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body data-app="claude">
+<div class="shell">
+  <header>
+    <svg class="mark" viewBox="0 0 42 42" aria-hidden="true">
+      <defs>
+        <linearGradient id="mk1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8875f"/><stop offset="1" stop-color="#c25a3c"/></linearGradient>
+        <linearGradient id="mk2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2aa580"/><stop offset="1" stop-color="#0f644e"/></linearGradient>
+      </defs>
+      <rect x="2" y="4" width="25" height="20" rx="7" fill="url(#mk1)"/>
+      <path d="M8 24 L8 30 L14 24 Z" fill="#c25a3c"/>
+      <rect x="15" y="16" width="25" height="20" rx="7" fill="url(#mk2)" opacity=".95"/>
+      <path d="M34 36 L34 41 L29 36 Z" fill="#0f644e"/>
+      <path d="M21 26 h11 M28 22.5 l4 3.5 -4 3.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="brand">
+      <h1>对话搬家</h1>
+      <p>把 AI 编程助手的聊天记录，一键带到新电脑</p>
+    </div>
+  </header>
+
+  <div class="stage">
+    <!-- home -->
+    <section class="view on" id="v-home">
+      <p class="lead">选择要搬家的助手</p>
+      <div class="cards">
+        <button class="card" data-app="claude">
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 0 .9.4 1 .9l.9 4.6c.2.9.9 1.6 1.8 1.8l4.6.9c.5.1.9.5.9 1s-.4.9-.9 1l-4.6.9c-.9.2-1.6.9-1.8 1.8l-.9 4.6c-.1.5-.5.9-1 .9s-.9-.4-1-.9l-.9-4.6c-.2-.9-.9-1.6-1.8-1.8l-4.6-.9c-.5-.1-.9-.5-.9-1s.4-.9.9-1l4.6-.9c.9-.2 1.6-.9 1.8-1.8l.9-4.6c.1-.5.5-.9 1-.9z"/></svg>
+          </div>
+          <h2>Claude</h2>
+          <p class="sub">Claude Code 模式的本地对话</p>
+          <div class="meta"><span class="stat-line" data-for="claude"><span class="dot off"></span>正在读取…</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+        </button>
+        <button class="card" data-app="codex">
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7l5 5-5 5M12.5 17H19"/></svg>
+          </div>
+          <h2>ChatGPT</h2>
+          <p class="sub">Codex 模式的本地对话</p>
+          <div class="meta"><span class="stat-line" data-for="codex"><span class="dot off"></span>正在读取…</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+        </button>
+      </div>
+    </section>
+
+    <!-- choose import / export -->
+    <section class="view" id="v-choose">
+      <button class="back" data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>返回</button>
+      <div class="choose-head">
+        <div class="icon" id="choose-icon"></div>
+        <div><h2 id="choose-title">Claude</h2><p id="choose-sub"></p></div>
+      </div>
+      <div class="actions">
+        <button class="action" data-do="export">
+          <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 14v4a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-4"/></svg></div>
+          <h3>导出</h3>
+          <p>把这台电脑上的聊天记录打包成一个 .zip 文件，方便拷到新电脑、U 盘或网盘。</p>
+        </button>
+        <button class="action" data-do="import">
+          <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 14v4a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-4"/></svg></div>
+          <h3>导入</h3>
+          <p>选择之前导出的 .zip 文件，合并进这台电脑。已有的对话不会被删除。</p>
+        </button>
+      </div>
+    </section>
+
+    <!-- working -->
+    <section class="view center" id="v-work">
+      <div class="ring" id="ring">
+        <svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="9"/><circle class="bar" id="ring-bar" cx="60" cy="60" r="52" fill="none" stroke-width="9" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg>
+        <div class="pct"><span><span id="pct">0</span><small>%</small></span></div>
+      </div>
+      <p class="work-title" id="work-title">正在导出…</p>
+      <p class="work-sub" id="work-sub"></p>
+    </section>
+
+    <!-- result -->
+    <section class="view center" id="v-done">
+      <div class="badge ok" id="badge"></div>
+      <p class="result-title" id="result-title"></p>
+      <p class="result-sub" id="result-sub"></p>
+      <div class="stats" id="result-stats"></div>
+      <p class="note" id="result-note" hidden></p>
+      <div class="buttons" id="result-buttons"></div>
+    </section>
+  </div>
+
+  <footer>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    记录只在本机和你选择的文件之间移动，不经过任何服务器
+  </footer>
+</div>
+
+<script>
+const APPS = {
+  claude: { name: "Claude", sub: "Claude Code 模式", unit: "个对话" },
+  codex: { name: "ChatGPT", sub: "Codex 模式", unit: "个会话（含子任务）" },
+};
+const ICONS = {
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.01"/><path d="M10.3 3.8L2.6 17.5a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/></svg>',
+  bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+};
+const $ = (s) => document.querySelector(s);
+const api = () => window.go.main.App;
+let current = "claude";
+let mode = "export";
+let stats = {};
+
+function fmt(n) {
+  if (n >= 1 << 30) return (n / (1 << 30)).toFixed(2) + " GB";
+  if (n >= 1 << 20) return (n / (1 << 20)).toFixed(1) + " MB";
+  if (n >= 1 << 10) return (n / (1 << 10)).toFixed(0) + " KB";
+  return n + " B";
+}
+
+function show(id) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === "v-" + id));
+}
+
+async function loadStats() {
+  for (const app of Object.keys(APPS)) {
+    let s;
+    try { s = await api().Stats(app); } catch { continue; }
+    stats[app] = s;
+    const el = document.querySelector(`.stat-line[data-for="${app}"]`);
+    el.innerHTML = s.found && s.files
+      ? `<span class="dot"></span>${s.sessions} ${APPS[app].unit} · ${fmt(s.bytes)}`
+      : `<span class="dot off"></span>这台电脑上还没有记录`;
+  }
+}
+
+function openChoose(app) {
+  current = app;
+  document.body.dataset.app = app;
+  $("#choose-icon").innerHTML = document.querySelector(`.card[data-app="${app}"] .icon`).innerHTML;
+  $("#choose-title").textContent = APPS[app].name;
+  const s = stats[app];
+  $("#choose-sub").textContent = s && s.found && s.files
+    ? `${APPS[app].sub} · 本机 ${s.sessions} ${APPS[app].unit}，共 ${fmt(s.bytes)}`
+    : `${APPS[app].sub} · 本机还没有记录，可以直接导入`;
+  show("choose");
+}
+
+function setProgress(done, total) {
+  const ring = $("#ring");
+  if (!total) { ring.classList.add("spin"); $("#ring-bar").style.strokeDashoffset = 245; $("#pct").textContent = "0"; return; }
+  ring.classList.remove("spin");
+  const p = Math.min(1, done / total);
+  $("#ring-bar").style.strokeDashoffset = 326.7 * (1 - p);
+  $("#pct").textContent = Math.floor(p * 100);
+  $("#work-sub").textContent = `${fmt(done)} / ${fmt(total)}`;
+}
+
+function button(label, cls, fn) {
+  const b = document.createElement("button");
+  b.className = "btn " + cls;
+  b.textContent = label;
+  b.onclick = fn;
+  return b;
+}
+
+function result({ kind, title, sub, stats: items = [], note = "", buttons = [] }) {
+  const badge = $("#badge");
+  badge.className = "badge " + kind;
+  badge.innerHTML = ICONS[kind];
+  $("#result-title").textContent = title;
+  $("#result-sub").textContent = sub || "";
+  $("#result-stats").innerHTML = items.map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  const n = $("#result-note");
+  n.hidden = !note;
+  n.textContent = note;
+  const bx = $("#result-buttons");
+  bx.replaceChildren(...buttons);
+  show("done");
+}
+
+function home() { loadStats(); show("home"); }
+
+function handle(o, retryPath) {
+  if (o.canceled) { show("choose"); return; }
+  const name = APPS[current].name;
+  if (o.code === "codex-running") {
+    result({
+      kind: "warn", title: "请先退出 Codex",
+      sub: "导入时需要 Codex 完全关闭（包括 VS Code 里的 Codex 插件），这样导入的会话才能出现在列表里。关掉之后点重试即可，不用重新选文件。",
+      buttons: [button("返回", "ghost", () => show("choose")), button("我已退出，重试", "primary", () => run("import", o.path))],
+    });
+    return;
+  }
+  if (o.error) {
+    result({
+      kind: "bad", title: o.code === "wrong-app" ? "选错压缩包了" : "没有完成",
+      sub: o.error, buttons: [button("返回", "ghost", () => show("choose"))],
+    });
+    return;
+  }
+  const r = o.result;
+  if (mode === "export") {
+    result({
+      kind: "ok", title: "导出完成", sub: r.path,
+      stats: [[r.sessions, name === "Claude" ? "个对话" : "个会话"], [fmt(r.bytes), "压缩包大小"]],
+      buttons: [button("在文件夹中显示", "ghost", () => api().Reveal(r.path)), button("完成", "primary", home)],
+    });
+  } else {
+    const nothing = r.added + r.updated === 0;
+    result({
+      kind: "ok", title: nothing ? "已经是最新的了" : "导入完成",
+      sub: nothing ? "压缩包里的对话这台电脑上都已经有了。" : `重新打开 ${name} 就能看到导入的对话。`,
+      stats: [[r.added, "新增文件"], [r.updated, "更新文件"], [r.skipped, "已存在，跳过"]],
+      note: r.note || (r.backupDir ? `被更新的旧文件已备份到 ${r.backupDir}` : ""),
+      buttons: [button("完成", "primary", home)],
+    });
+  }
+}
+
+async function run(kind, retryPath) {
+  mode = kind;
+  $("#work-title").textContent = kind === "export" ? "正在导出…" : "正在导入…";
+  $("#work-sub").textContent = "";
+  setProgress(0, 0);
+  let o;
+  try {
+    o = retryPath ? await api().RetryImport(current, retryPath)
+      : kind === "export" ? await api().Export(current) : await api().Import(current);
+  } catch (e) {
+    o = { error: String(e) };
+  }
+  handle(o);
+}
+
+document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openChoose(c.dataset.app)));
+document.querySelectorAll("[data-go=home]").forEach((b) => b.addEventListener("click", home));
+document.querySelectorAll("[data-do]").forEach((b) => b.addEventListener("click", () => run(b.dataset.do)));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#v-choose").classList.contains("on")) home(); });
+
+window.addEventListener("load", () => {
+  window.runtime.EventsOn("started", () => show("work"));
+  window.runtime.EventsOn("progress", (done, total) => setProgress(done, total));
+  loadStats();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>对话搬家</title>
+<meta name="description" content="一键导出、导入 Claude Code 和 ChatGPT Codex 的本地聊天记录。换电脑，AI 不失忆。">
+<meta property="og:title" content="对话搬家">
+<meta property="og:description" content="换电脑，AI 不失忆。一键搬家 Claude Code 和 ChatGPT Codex 的聊天记录。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a moving-day manifest. Hero pairs the app window with a shipping tag;
+   below, the "box contents", the three-step route, and the fine print, each set like labels on a carton. */
+:root {
+  --paper: #f2f3ef;
+  --card: #fbfbf8;
+  --ink: #1b1d1a;
+  --ink-2: #565a53;
+  --ink-3: #8a8e86;
+  --rule: #d9dbd3;
+  --kraft: #c9a46b;
+  --kraft-ink: #6b4f22;
+  --claude: #d0704f;
+  --codex: #1d8a6b;
+  --stamp: #b6402e;
+  --font-display: "ZCOOL QingKe HuangYou", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #141613; --card: #1c1f1b; --ink: #ecede7; --ink-2: #a8aba2; --ink-3: #74776f; --rule: #2e322c;
+    --kraft: #b28f58; --kraft-ink: #e3c690; --claude: #e0876a; --codex: #3fb58f; --stamp: #e06a55;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #141613; --card: #1c1f1b; --ink: #ecede7; --ink-2: #a8aba2; --ink-3: #74776f; --rule: #2e322c;
+  --kraft: #b28f58; --kraft-ink: #e3c690; --claude: #e0876a; --codex: #3fb58f; --stamp: #e06a55;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.mono { font-family: var(--font-mono); }
+.eyebrow { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+
+/* nav */
+nav .wrap { display: flex; align-items: center; justify-content: space-between; padding-block: 22px; }
+.logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 24px; text-decoration: none; }
+.logo svg { width: 32px; height: 32px; }
+nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 14.5px; color: var(--ink-2); }
+nav ul a { text-decoration: none; }
+nav ul a:hover { color: var(--ink); }
+
+/* hero */
+.hero .wrap { display: grid; grid-template-columns: 1.02fr 1fr; gap: 56px; align-items: center; padding-block: 48px 88px; }
+.hero h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(48px, 7.4vw, 92px); line-height: 1.02; margin-top: 18px; letter-spacing: .01em; }
+.hero h1 .hl { color: var(--stamp); }
+.hero .lede { font-size: 18px; color: var(--ink-2); margin-top: 24px; max-width: 30em; }
+.cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 9px; padding: 13px 24px; border-radius: 10px;
+  font-weight: 700; font-size: 15.5px; text-decoration: none; transition: transform .15s, background .2s;
+}
+.btn:active { transform: scale(.98); }
+.btn.solid { background: var(--ink); color: var(--paper); }
+.btn.solid:hover { background: color-mix(in srgb, var(--ink) 85%, var(--stamp)); }
+.btn.line { border: 1.5px solid var(--ink); }
+.btn.line:hover { background: var(--card); }
+.btn:focus-visible { outline: 2px solid var(--stamp); outline-offset: 3px; }
+.btn svg { width: 18px; height: 18px; }
+.specs { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 22px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); }
+
+/* product shot */
+.shot { position: relative; min-width: 0; }
+.window {
+  background: #f7f5f1; color: #1d1a16; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,.06), 0 30px 60px -20px rgba(30,35,25,.35), 0 0 0 1px rgba(0,0,0,.06);
+  transform: rotate(-1.2deg);
+}
+.titlebar { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; background: #eef0f3; font-size: 12px; color: #444; }
+.titlebar i { display: inline-block; width: 10px; height: 1.5px; background: #777; margin-left: 16px; vertical-align: middle; }
+.app { padding: 22px 22px 18px; background: radial-gradient(400px 200px at 0 0, rgba(232,135,95,.16), transparent 70%), radial-gradient(380px 220px at 100% 100%, rgba(31,143,111,.14), transparent 70%), #f7f5f1; }
+.app-head { display: flex; align-items: center; gap: 9px; }
+.app-head svg { width: 26px; height: 26px; }
+.app-head b { font-size: 14px; }
+.app-head span { display: block; font-size: 10.5px; color: #6b645b; font-weight: 400; }
+.app-lead { text-align: center; font-size: 11px; color: #6b645b; margin: 22px 0 10px; }
+.app-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.app-card { background: #fff; border-radius: 12px; padding: 14px; border: 1px solid rgba(30,24,18,.08); box-shadow: 0 6px 16px rgba(40,30,20,.06); }
+.app-card .ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: #fff; }
+.app-card .ic svg { width: 17px; height: 17px; }
+.app-card b { display: block; font-size: 16px; margin-top: 12px; }
+.app-card small { display: block; font-size: 10px; color: #6b645b; }
+.app-card em { display: block; font-style: normal; font-size: 10px; color: #6b645b; margin-top: 14px; }
+.app-card em::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #2f9e5b; margin-right: 5px; vertical-align: 1px; }
+.app-foot { text-align: center; font-size: 9.5px; color: #9b948a; margin-top: 16px; }
+
+.tag {
+  position: absolute; right: -10px; bottom: -34px; width: 216px; padding: 16px 18px 14px 26px;
+  background: var(--kraft); color: #2b2113; border-radius: 6px 14px 14px 6px;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6;
+  transform: rotate(4deg); box-shadow: 0 10px 24px -8px rgba(60,40,10,.45);
+  clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 50%);
+}
+.tag::before { content: ""; position: absolute; left: 12px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 2px rgba(0,0,0,.18); }
+.tag strong { display: block; font-family: var(--font-display); font-weight: 400; font-size: 21px; letter-spacing: .04em; margin-bottom: 4px; }
+.tag dl { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; margin: 0; }
+.tag dt { opacity: .62; }
+.tag dd { margin: 0; font-weight: 600; }
+
+/* sections */
+section.block { border-top: 1px solid var(--rule); }
+section.block .wrap { padding-block: 84px; }
+.sec-head { display: grid; grid-template-columns: 220px 1fr; gap: 40px; align-items: baseline; margin-bottom: 44px; }
+.sec-head h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(32px, 4.4vw, 48px); line-height: 1.15; }
+.sec-head p { color: var(--ink-2); max-width: 36em; margin-top: 12px; }
+
+/* manifest */
+.manifest { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.carton { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; position: relative; min-width: 0; }
+.carton header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 2px dashed var(--rule); }
+.carton header h3 { font-family: var(--font-display); font-weight: 400; font-size: 28px; display: flex; align-items: center; gap: 12px; }
+.carton header h3 i { width: 14px; height: 14px; border-radius: 3px; background: var(--c); }
+.carton header .mono { font-size: 12px; color: var(--ink-3); }
+.carton[data-k="claude"] { --c: var(--claude); }
+.carton[data-k="codex"] { --c: var(--codex); }
+.carton .rows { padding: 8px 22px 20px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 13px 0; border-bottom: 1px solid var(--rule); }
+.row:last-child { border-bottom: 0; }
+.row b { font-weight: 500; }
+.row code { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.row .st { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; align-self: start; white-space: nowrap; }
+.st.in { background: color-mix(in srgb, var(--codex) 15%, transparent); color: var(--codex); }
+.st.out { background: color-mix(in srgb, var(--ink-3) 18%, transparent); color: var(--ink-2); }
+.tape { position: absolute; top: -11px; left: 50%; width: 92px; height: 22px; margin-left: -46px; background: color-mix(in srgb, var(--c) 55%, transparent); transform: rotate(-2deg); opacity: .8; }
+
+/* route */
+.route { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; counter-reset: step; }
+.stop { padding: 0 28px 0 0; position: relative; min-width: 0; }
+.stop + .stop { padding-left: 28px; border-left: 1px dashed var(--rule); }
+.stop .n { font-family: var(--font-display); font-size: 64px; line-height: 1; color: var(--stamp); }
+.stop h3 { font-size: 21px; margin-top: 12px; }
+.stop p { color: var(--ink-2); margin-top: 8px; font-size: 15px; }
+.stop .mono { display: inline-block; margin-top: 12px; font-size: 12px; color: var(--ink-3); background: var(--card); border: 1px solid var(--rule); padding: 3px 9px; border-radius: 5px; }
+
+/* promises */
+.promises { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border: 1px solid var(--rule); border-radius: 4px; background: var(--card); }
+.promise { padding: 28px; display: grid; grid-template-columns: 44px 1fr; gap: 16px; min-width: 0; }
+.promise:nth-child(odd) { border-right: 1px solid var(--rule); }
+.promise:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+.promise svg { width: 30px; height: 30px; color: var(--stamp); }
+.promise h3 { font-size: 18px; }
+.promise p { color: var(--ink-2); font-size: 15px; margin-top: 6px; }
+
+/* faq */
+.faq { display: grid; gap: 0; max-width: 820px; }
+details { border-bottom: 1px solid var(--rule); }
+summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 20px; padding: 20px 0; font-size: 17.5px; font-weight: 500; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-family: var(--font-mono); color: var(--ink-3); font-size: 20px; line-height: 1.3; transition: transform .2s; }
+details[open] summary::after { transform: rotate(45deg); }
+summary:focus-visible { outline: 2px solid var(--stamp); outline-offset: 4px; }
+details p { color: var(--ink-2); padding-bottom: 22px; max-width: 44em; }
+details code { font-family: var(--font-mono); font-size: 13.5px; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 6px; }
+
+/* get */
+.get .wrap { padding-block: 84px 96px; }
+.ticket {
+  display: grid; grid-template-columns: 1.3fr 1fr; background: var(--ink); color: var(--paper); border-radius: 18px; overflow: hidden;
+}
+.ticket .l { padding: 44px; }
+.ticket .l h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(36px, 5vw, 56px); line-height: 1.1; }
+.ticket .l p { margin-top: 14px; opacity: .75; max-width: 30em; }
+.ticket .r { padding: 44px; border-left: 2px dashed color-mix(in srgb, var(--paper) 25%, transparent); display: flex; flex-direction: column; justify-content: center; gap: 14px; font-family: var(--font-mono); font-size: 13.5px; }
+.ticket .r div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid color-mix(in srgb, var(--paper) 14%, transparent); padding-bottom: 10px; }
+.ticket .r span { opacity: .6; }
+.ticket .dl { margin-top: 10px; justify-content: center; background: var(--paper); color: var(--ink); font-family: var(--font-body); }
+.ticket .dl:hover { background: var(--card); }
+.ticket .pending { margin-top: 8px; padding: 12px 14px; border-radius: 8px; background: color-mix(in srgb, var(--paper) 9%, transparent); line-height: 1.6; }
+
+footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink-3); }
+
+/* load-in for the hero only */
+@media (prefers-reduced-motion: no-preference) {
+  .window { animation: settle .9s cubic-bezier(.2,.8,.2,1) both; }
+  .tag { animation: swing 1.4s .25s cubic-bezier(.2,.8,.2,1) both; transform-origin: 8% 50%; }
+  @keyframes settle { from { transform: rotate(-4deg) translateY(18px); } to { transform: rotate(-1.2deg); } }
+  @keyframes swing { 0% { transform: rotate(-10deg); } 55% { transform: rotate(8deg); } 100% { transform: rotate(4deg); } }
+}
+
+@media (max-width: 880px) {
+  nav ul { display: none; }
+  .hero .wrap { grid-template-columns: 1fr; gap: 64px; padding-block: 24px 80px; }
+  .sec-head { grid-template-columns: 1fr; gap: 0; }
+  .manifest, .promises, .ticket { grid-template-columns: 1fr; }
+  .promise:nth-child(odd) { border-right: 0; }
+  .promise:not(:last-child) { border-bottom: 1px solid var(--rule); }
+  .route { grid-template-columns: 1fr; gap: 34px; }
+  .stop, .stop + .stop { padding: 0; border-left: 0; }
+  .ticket .r { border-left: 0; border-top: 2px dashed color-mix(in srgb, var(--paper) 25%, transparent); }
+  .tag { right: 4px; }
+}
+@media (max-width: 460px) {
+  .ticket .l, .ticket .r { padding: 28px 22px; }
+  .app-cards { gap: 8px; }
+  .tag { width: 190px; bottom: -44px; }
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="对话搬家">
+      <svg viewBox="0 0 42 42" aria-hidden="true">
+        <rect x="2" y="4" width="25" height="20" rx="7" fill="#d0704f"/>
+        <path d="M8 24 L8 30 L14 24 Z" fill="#d0704f"/>
+        <rect x="15" y="16" width="25" height="20" rx="7" fill="#1d8a6b"/>
+        <path d="M34 36 L34 41 L29 36 Z" fill="#1d8a6b"/>
+        <path d="M21 26 h11 M28 22.5 l4 3.5 -4 3.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      对话搬家
+    </a>
+    <ul>
+      <li><a href="#contents">搬什么</a></li>
+      <li><a href="#route">怎么搬</a></li>
+      <li><a href="#faq">常见问题</a></li>
+      <li><a href="#get">获取</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">Claude Code · ChatGPT Codex</p>
+      <h1>换电脑，<br><span class="hl">AI 不失忆</span>。</h1>
+      <p class="lede">你和 AI 聊了几百轮的项目上下文，都存在旧电脑的隐藏文件夹里。对话搬家把它们打包成一个文件，到新电脑上点一下就回来了，还能接着聊。</p>
+      <div class="cta">
+        <a class="btn solid" href="#get"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>获取 Windows 版</a>
+        <a class="btn line" href="#route">看看怎么用</a>
+      </div>
+      <p class="specs"><span>单文件 · 免安装</span><span>约 11 MB</span><span>全程离线</span></p>
+    </div>
+
+    <div class="shot" aria-label="对话搬家主界面">
+      <div class="window">
+        <div class="titlebar"><span>对话搬家</span><span><i></i><i></i><i></i></span></div>
+        <div class="app">
+          <div class="app-head">
+            <svg viewBox="0 0 42 42" aria-hidden="true"><rect x="2" y="4" width="25" height="20" rx="7" fill="#e07a54"/><path d="M8 24 L8 30 L14 24 Z" fill="#e07a54"/><rect x="15" y="16" width="25" height="20" rx="7" fill="#1f8f6f"/><path d="M34 36 L34 41 L29 36 Z" fill="#1f8f6f"/><path d="M21 26 h11 M28 22.5 l4 3.5 -4 3.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <b>对话搬家<span>把 AI 编程助手的聊天记录，一键带到新电脑</span></b>
+          </div>
+          <p class="app-lead">选择要搬家的助手</p>
+          <div class="app-cards">
+            <div class="app-card">
+              <div class="ic" style="background:linear-gradient(145deg,#d97757,#b9573a)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5c.5 0 .9.4 1 .9l.9 4.6c.2.9.9 1.6 1.8 1.8l4.6.9c.5.1.9.5.9 1s-.4.9-.9 1l-4.6.9c-.9.2-1.6.9-1.8 1.8l-.9 4.6c-.1.5-.5.9-1 .9s-.9-.4-1-.9l-.9-4.6c-.2-.9-.9-1.6-1.8-1.8l-4.6-.9c-.5-.1-.9-.5-.9-1s.4-.9.9-1l4.6-.9c.9-.2 1.6-.9 1.8-1.8l.9-4.6c.1-.5.5-.9 1-.9z"/></svg></div>
+              <b>Claude</b><small>Claude Code 模式的本地对话</small><em>9 个对话 · 210 MB</em>
+            </div>
+            <div class="app-card">
+              <div class="ic" style="background:linear-gradient(145deg,#1f8f6f,#0f644e)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12.5 17H19"/></svg></div>
+              <b>ChatGPT</b><small>Codex 模式的本地对话</small><em>280 个会话 · 2.46 GB</em>
+            </div>
+          </div>
+          <p class="app-foot">记录只在本机和你选择的文件之间移动，不经过任何服务器</p>
+        </div>
+      </div>
+      <div class="tag" aria-hidden="true">
+        <strong>小心轻放</strong>
+        <dl><dt>FROM</dt><dd>旧电脑</dd><dt>TO</dt><dd>新电脑</dd><dt>内含</dt><dd>289 段对话</dd></dl>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="block" id="contents">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">箱子里装了什么</p>
+      <div>
+        <h2>只搬对话，不碰账号</h2>
+        <p>两个助手都把聊天记录存在你自己的电脑上。对话搬家只打包对话本身，登录凭证、密钥和配置一律不动。</p>
+      </div>
+    </div>
+    <div class="manifest">
+      <article class="carton" data-k="claude">
+        <span class="tape" aria-hidden="true"></span>
+        <header><h3><i></i>Claude</h3><span class="mono">~/.claude</span></header>
+        <div class="rows">
+          <div class="row"><b>每个对话的完整记录</b><span class="st in">打包</span><code>projects/&lt;项目&gt;/&lt;对话ID&gt;.jsonl</code></div>
+          <div class="row"><b>项目记忆与对话标题</b><span class="st in">打包</span><code>projects/&lt;项目&gt;/memory/*.md</code></div>
+          <div class="row"><b>登录状态与设置</b><span class="st out">不碰</span><code>.credentials · settings.json</code></div>
+        </div>
+      </article>
+      <article class="carton" data-k="codex">
+        <span class="tape" aria-hidden="true"></span>
+        <header><h3><i></i>ChatGPT Codex</h3><span class="mono">~/.codex</span></header>
+        <div class="rows">
+          <div class="row"><b>会话记录（含已压缩、已归档的）</b><span class="st in">打包</span><code>sessions/2026/10/23/rollout-*.jsonl.zst</code></div>
+          <div class="row"><b>对话标题</b><span class="st in">打包，导入后恢复</span><code>session_index.jsonl</code></div>
+          <div class="row"><b>登录状态、密钥与数据库</b><span class="st out">不碰</span><code>auth.json · secrets/ · *.sqlite</code></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="route">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">怎么搬</p>
+      <div>
+        <h2>三步，第二步你最熟</h2>
+        <p>界面只有两个按钮：Claude 和 ChatGPT。选好以后，导出还是导入，再挑个位置，剩下的自动完成。</p>
+      </div>
+    </div>
+    <div class="route">
+      <div class="stop">
+        <div class="n">1</div>
+        <h3>在旧电脑上导出</h3>
+        <p>点 Claude 或 ChatGPT，选"导出"，挑一个保存位置。几秒到一分钟，得到一个 .zip。</p>
+        <span class="mono">Claude-聊天记录-旧电脑-20261023.zip</span>
+      </div>
+      <div class="stop">
+        <div class="n">2</div>
+        <h3>把文件拷过去</h3>
+        <p>U 盘、网盘、微信传文件、局域网共享，用什么都行。</p>
+        <span class="mono">141 MB → 新电脑桌面</span>
+      </div>
+      <div class="stop">
+        <div class="n">3</div>
+        <h3>在新电脑上导入</h3>
+        <p>选"导入"，点那个 .zip。完成后重新打开 Claude 或 Codex，之前的对话都在。</p>
+        <span class="mono">新增 25 · 更新 0 · 跳过 0</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">放心的地方</p>
+      <div><h2>搬家不丢东西</h2></div>
+    </div>
+    <div class="promises">
+      <div class="promise">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <div><h3>不联网</h3><p>没有账号，没有服务器。记录只在你的电脑和你选的文件之间移动。</p></div>
+      </div>
+      <div class="promise">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V7z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
+        <div><h3>不删、不乱覆盖</h3><p>导入是合并：新对话直接加进来，已有的对话只在压缩包里那份更完整时才更新，旧文件先备份。</p></div>
+      </div>
+      <div class="promise">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l2 2 3-4"/></svg>
+        <div><h3>Codex 标题跟着走</h3><p>Codex 的对话列表和改过的标题存在它自己的数据库里。导入后会让 Codex 自己重新扫描，把标题恢复回来。</p></div>
+      </div>
+      <div class="promise">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <div><h3>正在聊的不打扰</h3><p>10 分钟内还在写入的对话不会被覆盖；导入 Codex 记录前会提醒你先把 Codex 关掉。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">常见问题</p>
+      <div><h2>搬之前你可能想问</h2></div>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>为什么 Codex 的记录动辄几个 GB？</summary>
+        <p>记录里大约九成的体积是图片。浏览器截图、电脑操作截图这些都以 base64 文本直接存在会话文件里，而且同一张截图常被记录不止一次。真正的文字对话只占一小部分。压缩包几乎不会变小，因为图片本来就压缩过。</p>
+      </details>
+      <details>
+        <summary>导入后 Claude 桌面版侧边栏里看不到？</summary>
+        <p>Claude 桌面版的侧边栏由它自己的一份会话清单驱动，这一版还不会写入那份清单。对话本身已经在了：在终端里进入同一个项目文件夹，运行 <code>claude --resume</code> 就能找到并接着聊。</p>
+      </details>
+      <details>
+        <summary>两台电脑上的项目路径不一样怎么办？</summary>
+        <p>Claude Code 按项目的完整路径归类对话。旧电脑上是 <code>D:\projects\my-app</code>，新电脑上也放在同样的路径最省事。路径不同的话，对话仍会被导入，只是要在原路径下才能续聊；命令行版 chatsync 支持路径映射。</p>
+      </details>
+      <details>
+        <summary>导入 Codex 时提示"请先退出 Codex"？</summary>
+        <p>Codex 开着时会锁住自己的列表。把 Codex 桌面版和 VS Code 里的 Codex 插件都关掉，点"我已退出，重试"即可，不用重新选文件。</p>
+      </details>
+      <details>
+        <summary>会把我的登录信息一起带走吗？</summary>
+        <p>不会。<code>auth.json</code>、<code>secrets/</code>、凭证和设置都不在打包范围内。新电脑上需要自己登录一次。</p>
+      </details>
+      <details>
+        <summary>支持 Mac 吗？</summary>
+        <p>目前只有 Windows 版。</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="get" id="get">
+  <div class="wrap">
+    <div class="ticket">
+      <div class="l">
+        <p class="eyebrow" style="color:inherit;opacity:.55">获取</p>
+        <h2>对话搬家<br>Windows 版</h2>
+        <p>下载后双击即可运行，不用安装，也不用配置。</p>
+      </div>
+      <div class="r">
+        <div><span>系统</span>Windows 10 / 11</div>
+        <div><span>大小</span>约 11 MB</div>
+        <div><span>支持</span>Claude Code · ChatGPT Codex</div>
+        <div><span>联网</span>不需要</div>
+        <a class="btn dl" href="/chatmove-windows-v1.0.0.exe" download="对话搬家.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>下载 对话搬家.exe</a>
+        <p class="pending">v1.0.0 · 首次运行如果出现"Windows 已保护你的电脑"，点"更多信息"→"仍要运行"。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>对话搬家 · 第三方工具，与 Anthropic、OpenAI 无关联</span>
+    <span>Claude 是 Anthropic 的商标，ChatGPT 与 Codex 是 OpenAI 的商标</span>
+  </div>
+</footer>
+</body>
+</html>
