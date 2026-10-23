@@ -8,3 +8,6 @@ chatsync.json
 chatsync.log
 conflicts/
 *.zip
+
+.vercel
+.env*
