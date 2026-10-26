@@ -37,21 +37,21 @@ func TestRealRoundTrip(t *testing.T) {
 			if app == AppCodex {
 				other = AppClaude
 			}
-			if _, err := Import(other, dst, zipPath, nil); !errors.Is(err, ErrWrongApp) {
+			if _, err := Import(other, dst, zipPath, filepath.Join(tmp, "迁移"), nil); !errors.Is(err, ErrWrongApp) {
 				t.Fatalf("wrong-app import: got %v", err)
 			}
 
 			runningCodexCheck = func() ([]string, error) { return nil, nil }
 			if app == AppCodex {
 				runningCodexCheck = func() ([]string, error) { return []string{"codex.exe (pid 1)"}, nil }
-				_, err = Import(app, dst, zipPath, nil)
+				_, err = Import(app, dst, zipPath, filepath.Join(tmp, "迁移"), nil)
 				runningCodexCheck = func() ([]string, error) { return nil, nil }
 				if !errors.Is(err, ErrCodexRunning) {
 					t.Fatalf("codex running: got %v", err)
 				}
 			}
 
-			res, err = Import(app, dst, zipPath, nil)
+			res, err = Import(app, dst, zipPath, filepath.Join(tmp, "迁移"), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -66,7 +66,7 @@ func TestRealRoundTrip(t *testing.T) {
 				}
 			}
 
-			res, err = Import(app, dst, zipPath, nil)
+			res, err = Import(app, dst, zipPath, filepath.Join(tmp, "迁移"), nil)
 			if err != nil || res.Added+res.Updated != 0 {
 				t.Fatalf("import #2 should change nothing: %+v %v", res, err)
 			}
@@ -86,7 +86,7 @@ func TestRealRoundTrip(t *testing.T) {
 			old := victim.size / 2
 			hourAgo := time.Now().Add(-time.Hour)
 			os.Chtimes(victim.abs, hourAgo, hourAgo)
-			res, err = Import(app, dst, zipPath, nil)
+			res, err = Import(app, dst, zipPath, filepath.Join(tmp, "迁移"), nil)
 			if err != nil || res.Updated != 1 || res.BackupDir == "" {
 				t.Fatalf("import #3 should update 1 file: %+v %v", res, err)
 			}

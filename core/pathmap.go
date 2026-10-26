@@ -13,24 +13,19 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-// Both apps only list a conversation whose working folder exists on this
-// machine. A pack made on another computer carries that computer's paths,
-// typically C:\Users\<old name>\..., so imports move them under this user's
-// home and create any project folder that is still missing.
-
-// createDirs is turned off by tests that import into a sandbox but keep the
-// original drive paths.
-var createDirs = true
+// A pack made on another computer carries that computer's paths, typically
+// C:Users<old name>.... The relocator moves working folders into the
+// folder the user picks; the mover handles what stays put, such as a chat
+// opened in the old Documents folder, by swapping in this user's home.
 
 type pathMover struct {
 	oldHomes []string // a history can carry several, e.g. after an earlier move
 	newHome  string
-	created  map[string]bool
 }
 
 func newPathMover(oldHomes ...string) *pathMover {
 	home, _ := os.UserHomeDir()
-	m := &pathMover{newHome: home, created: map[string]bool{}}
+	m := &pathMover{newHome: home}
 	seen := map[string]bool{}
 	for _, h := range oldHomes {
 		k := strings.ToLower(filepath.Clean(h))
@@ -40,19 +35,6 @@ func newPathMover(oldHomes ...string) *pathMover {
 		}
 	}
 	return m
-}
-
-// rewriter replaces every old home folder in a transcript's paths; the
-// trailing separator keeps C:\Users\Al from matching C:\Users\Alice.
-func (m *pathMover) rewriter(only ...string) *lineRewriter {
-	lr := &lineRewriter{}
-	for _, o := range only {
-		lr.only = append(lr.only, []byte(o))
-	}
-	for _, h := range m.oldHomes {
-		lr.add(h+`\`, m.newHome+`\`)
-	}
-	return lr
 }
 
 var homeRe = regexp.MustCompile(`(?i)^(?:\\\\\?\\)?[a-z]:\\users\\[^\\]+`)
@@ -85,38 +67,9 @@ func (m *pathMover) move(p string) string {
 	return p
 }
 
-// ensure makes sure a working folder exists, creating it at the same path, or
-// under this user's home when its drive is missing. It returns the folder
-// the conversation should now point at.
-func (m *pathMover) ensure(p string) string {
-	if p == "" {
-		return p
-	}
-	bare := strings.TrimPrefix(p, `\\?\`)
-	if info, err := os.Stat(bare); err == nil && info.IsDir() {
-		return p
-	}
-	if vol := filepath.VolumeName(bare); vol == "" || !dirExists(vol+`\`) {
-		bare = filepath.Join(m.newHome, strings.TrimSuffix(vol, ":"), bare[len(vol):])
-		p = bare
-	}
-	if !createDirs || os.MkdirAll(bare, 0755) == nil {
-		m.created[bare] = true
-	}
-	return p
-}
-
 func dirExists(p string) bool {
 	info, err := os.Stat(p)
 	return err == nil && info.IsDir()
-}
-
-func (m *pathMover) createdDirs() []string {
-	var out []string
-	for d := range m.created {
-		out = append(out, d)
-	}
-	return out
 }
 
 // jsonEsc returns s as it appears inside a JSON string literal.
@@ -137,7 +90,20 @@ func (lr *lineRewriter) add(from, to string) {
 	}
 }
 
-func (lr *lineRewriter) empty() bool { return len(lr.pairs) == 0 }
+// addPath replaces a folder path and anything inside it, but not a sibling
+// whose name merely starts the same (D:\a must not touch D:\ab).
+func (lr *lineRewriter) addPath(from, to string) {
+	if from == "" || strings.EqualFold(from, to) {
+		return
+	}
+	f, t := jsonEsc(from), jsonEsc(to)
+	sep := []byte(`\\`)
+	lr.pairs = append(lr.pairs,
+		[2][]byte{append(append([]byte{}, f...), sep...), append(append([]byte{}, t...), sep...)},
+		[2][]byte{append(append([]byte{}, f...), '"'), append(append([]byte{}, t...), '"')})
+}
+
+func (lr *lineRewriter) empty() bool { return lr == nil || len(lr.pairs) == 0 }
 
 func (lr *lineRewriter) line(l []byte) []byte {
 	if lr.only != nil {
@@ -152,10 +118,40 @@ func (lr *lineRewriter) line(l []byte) []byte {
 			return l
 		}
 	}
-	for _, p := range lr.pairs {
-		l = bytes.ReplaceAll(l, p[0], p[1])
+	// One pass over the line: each spot is rewritten at most once, by the
+	// earliest pair that matches there, so a path already moved into the
+	// new folder is never rewritten again by a later, broader pair.
+	var out []byte
+	pos := 0
+	for {
+		at, pick := -1, -1
+		for i, p := range lr.pairs {
+			j := bytes.Index(l[pos:], p[0])
+			if j >= 0 && (at < 0 || j < at) {
+				at, pick = j, i
+			}
+		}
+		if at < 0 {
+			break
+		}
+		out = append(out, l[pos:pos+at]...)
+		out = append(out, lr.pairs[pick][1]...)
+		pos += at + len(lr.pairs[pick][0])
 	}
-	return l
+	if out == nil {
+		return l
+	}
+	return append(out, l[pos:]...)
+}
+
+// with returns a copy that tries pairs for from -> to before its own.
+func (lr *lineRewriter) with(pairs ...[2]string) *lineRewriter {
+	first := &lineRewriter{only: lr.only}
+	for _, p := range pairs {
+		first.addPath(p[0], p[1])
+	}
+	first.pairs = append(first.pairs, lr.pairs...)
+	return first
 }
 
 // copy streams JSONL from r to w, rewriting line by line.

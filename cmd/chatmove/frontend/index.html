@@ -188,6 +188,21 @@ header { display: flex; align-items: center; gap: 14px; }
 .btn.ghost { background: var(--surface); border: 1px solid var(--line-strong); }
 .btn.ghost:hover { background: var(--surface-2); }
 
+/* guide: where imported files go */
+.guide-title { font-size: 22px; font-weight: 660; }
+.guide-from { font-size: 12.5px; color: var(--text-3); margin-top: 4px; }
+.guide-text { font-size: 13.5px; color: var(--text-2); line-height: 1.75; max-width: 600px; margin-top: 14px; }
+.guide-text b { color: var(--text); font-weight: 600; }
+.folder {
+  display: flex; align-items: center; gap: 12px; width: 100%; max-width: 620px; margin-top: 20px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px; padding: 12px 12px 12px 16px;
+  box-shadow: var(--shadow);
+}
+.folder svg { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.folder .path { flex: 1; min-width: 0; text-align: left; font-size: 14px; font-weight: 560; word-break: break-all; }
+.folder .btn { padding: 8px 14px; font-size: 13px; }
+.guide-hint { font-size: 12px; color: var(--text-3); margin-top: 10px; max-width: 600px; }
+
 footer { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; color: var(--text-3); margin-top: 14px; }
 footer svg { width: 13px; height: 13px; }
 
@@ -254,9 +269,25 @@ footer svg { width: 13px; height: 13px; }
         <button class="action" data-do="import">
           <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 14v4a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-4"/></svg></div>
           <h3>导入</h3>
-          <p>选择之前导出的 .zip 文件，对话和项目文件放回原来的位置。这台电脑上已有的文件不会被覆盖。</p>
+          <p>选择之前导出的 .zip 文件，再选一个新文件夹，对话用到的所有文件都放在那里。</p>
         </button>
       </div>
+    </section>
+
+    <!-- guide: pick the folder for imported files -->
+    <section class="view center" id="v-guide">
+      <button class="back" data-go="choose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>返回</button>
+      <p class="guide-title">选一个新文件夹，放下迁移过来的全部内容</p>
+      <p class="guide-from" id="guide-from"></p>
+      <div class="stats" id="guide-stats"></div>
+      <p class="guide-text">每个对话用到的<b>项目文件</b>、<b>生成的图片和附件</b>，以及对话<b>写到别处的文件</b>，都会放进这个文件夹，每个项目一个子文件夹。聊天记录会回到 <b id="guide-app">Claude</b> 里，并指向这个文件夹，打开对话就能接着用。</p>
+      <div class="folder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span class="path" id="guide-path"></span>
+        <button class="btn ghost" id="guide-change">更改…</button>
+      </div>
+      <p class="guide-hint">建议用一个新的空文件夹。这台电脑上已有的文件不会被改动或覆盖。</p>
+      <div class="buttons"><button class="btn primary" id="guide-go">开始导入</button></div>
     </section>
 
     <!-- working -->
@@ -379,7 +410,7 @@ function handle(o, retryPath) {
     result({
       kind: "warn", title: "请先退出 Codex",
       sub: "导入时要把对话登记进 Codex 的列表，需要先完全退出 Codex：桌面版（右下角托盘也要退出）和 VS Code 里的 Codex 插件都要关掉。关掉之后点重试即可，不用重新选文件。",
-      buttons: [button("返回", "ghost", () => show("choose")), button("我已退出，重试", "primary", () => run("import", o.path))],
+      buttons: [button("返回", "ghost", () => show("guide")), button("我已退出，重试", "primary", () => run("import"))],
     });
     return;
   }
@@ -407,31 +438,52 @@ function handle(o, retryPath) {
     const nothing = r.added + r.updated === 0;
     const notes = [];
     if (r.note) notes.push(r.note);
-    const dirs = r.createdDirs || [];
-    if (dirs.length) notes.push(`这台电脑上没有原来的项目文件夹，已新建 ${dirs.length} 个空文件夹：${dirs.slice(0, 3).join("、")}${dirs.length > 3 ? " 等" : ""}。`);
-    if (r.folderFiles) notes.push(`项目文件已还原到原来的位置，共 ${r.folderFiles} 个文件。`);
-    if (r.kept) notes.push(`${r.kept} 个项目文件这台电脑上已经有不同的版本，保留了你现有的，没有覆盖。`);
+    if (r.kept) notes.push(`${r.kept} 个文件和文件夹里已有的同名文件内容不同，两份都保留了，导入的那份文件名后面带「(导入)」。`);
     if (r.removed) notes.push(`${r.removed} 个对话在这台电脑上已经被你移除过，没有再导入。`);
     if (r.backupDir) notes.push(`改动前的文件已备份到 ${r.backupDir}`);
     result({
       kind: "ok", title: nothing ? "已经是最新的了" : "导入完成",
-      sub: nothing ? "压缩包里的对话这台电脑上都已经有了。" : `共 ${r.sessions} 个对话。`,
+      sub: nothing ? "压缩包里的内容这台电脑上都已经有了。" : `共 ${r.sessions} 个对话，所有文件都在 ${r.target}`,
       stats: [[r.sessions, "个对话"], [r.folders, "个项目文件夹"], [r.added + r.updated, "个文件写入"], [r.skipped, "个已存在"]],
       note: notes.join("\n"),
-      buttons: [button("完成", "primary", home)],
+      buttons: [button("打开文件夹", "ghost", () => api().Reveal(r.target)), button("完成", "primary", home)],
     });
   }
 }
 
-async function run(kind, retryPath) {
+let plan = null; // the pack being imported and where its files go
+
+async function startImport() {
+  let p;
+  try { p = await api().PickPack(current); } catch (e) { p = { error: String(e) }; }
+  if (p.canceled) return;
+  if (p.error) {
+    result({ kind: "bad", title: "没法导入", sub: p.error, buttons: [button("返回", "ghost", () => show("choose"))] });
+    return;
+  }
+  plan = p;
+  renderGuide();
+  show("guide");
+}
+
+function renderGuide() {
+  const k = plan.pack || {};
+  const when = k.created && !k.created.startsWith("0001") ? " · " + new Date(k.created).toLocaleString() + " 导出" : "";
+  $("#guide-from").textContent = k.machine ? `来自电脑「${k.machine}」${when}` : "";
+  $("#guide-stats").innerHTML = [[k.sessions || 0, "个对话"], [k.folders || 0, "个项目文件夹"], [k.outputs || 0, "个其他产出文件"], [fmt(k.bytes || 0), "总大小"]]
+    .map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  $("#guide-app").textContent = APPS[current].name;
+  $("#guide-path").textContent = plan.target;
+}
+
+async function run(kind) {
   mode = kind;
   $("#work-title").textContent = kind === "export" ? "正在导出…" : "正在导入…";
   $("#work-sub").textContent = "";
   setProgress(0, 0);
   let o;
   try {
-    o = retryPath ? await api().RetryImport(current, retryPath)
-      : kind === "export" ? await api().Export(current) : await api().Import(current);
+    o = kind === "export" ? await api().Export(current) : await api().ImportTo(current, plan.zip, plan.target);
   } catch (e) {
     o = { error: String(e) };
   }
@@ -440,7 +492,10 @@ async function run(kind, retryPath) {
 
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openChoose(c.dataset.app)));
 document.querySelectorAll("[data-go=home]").forEach((b) => b.addEventListener("click", home));
-document.querySelectorAll("[data-do]").forEach((b) => b.addEventListener("click", () => run(b.dataset.do)));
+document.querySelectorAll("[data-do]").forEach((b) => b.addEventListener("click", () => (b.dataset.do === "import" ? startImport() : run("export"))));
+document.querySelectorAll("[data-go=choose]").forEach((b) => b.addEventListener("click", () => show("choose")));
+$("#guide-change").addEventListener("click", async () => { plan.target = await api().PickFolder(plan.target); renderGuide(); });
+$("#guide-go").addEventListener("click", () => run("import"));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#v-choose").classList.contains("on")) home(); });
 
 window.addEventListener("load", () => {

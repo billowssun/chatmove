@@ -239,7 +239,7 @@ func uuidV7() string {
 // registerCodexSidebar places imported threads in this machine's sidebar the
 // way they were placed on the exporting machine, creating local projects as
 // needed. Codex must not be running. Both files are backed up first.
-func registerCodexSidebar(codexDir string, places map[string]codexPlace, mover *pathMover, backupDir string) (int, error) {
+func registerCodexSidebar(codexDir string, places map[string]codexPlace, place func(string) string, backupDir string) (int, error) {
 	gsPath := filepath.Join(codexDir, codexGlobalState)
 	dbPath := filepath.Join(codexDir, "state_5.sqlite")
 	gs, err := readGlobalState(codexDir)
@@ -304,15 +304,15 @@ func registerCodexSidebar(codexDir string, places map[string]codexPlace, mover *
 				gs["projectless-thread-ids"] = append(gsList(gs, "projectless-thread-ids"), id)
 				projectless[id] = true
 			}
-			hint := mover.move(pl.Hint)
+			hint := place(pl.Hint)
 			if hint == "" {
 				hint = filepath.Join(home, "Documents", "Codex")
 			}
-			hints[id] = mover.ensure(hint)
+			hints[id] = hint
 			placed++
 			continue
 		}
-		root := mover.ensure(mover.move(pl.Root))
+		root := place(pl.Root)
 		p, ok := projects[normPath(root)]
 		if !ok {
 			legacy := fmt.Sprintf("local-%x", md5.Sum([]byte(root)))

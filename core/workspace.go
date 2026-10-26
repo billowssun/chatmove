@@ -31,11 +31,15 @@ var skipDirs = map[string]bool{
 // broadFolder reports folders too general to pack whole: a drive root, the
 // home folder, or one of its standard top-level folders.
 func broadFolder(p string) bool {
+	home, _ := os.UserHomeDir()
+	return broadFolderIn(p, home)
+}
+
+func broadFolderIn(p, home string) bool {
 	p = filepath.Clean(strings.TrimPrefix(p, `\\?\`))
 	if len(p) <= 3 { // C:\
 		return true
 	}
-	home, _ := os.UserHomeDir()
 	if strings.EqualFold(p, home) {
 		return true
 	}
@@ -68,27 +72,15 @@ func cutPrefixFold(s, prefix string) (string, bool) {
 	return "", false
 }
 
-// workspaceTarget maps a pack path back to a folder on this machine. A
-// drive this machine lacks is replaced by the home folder.
-func workspaceTarget(rel string) string {
-	return workspaceTargetIn(rel)
-}
-
-// driveRoot is redirected by tests so they never write to real drives.
-var driveRoot = func(letter string) string { return letter + `:\` }
-
-func workspaceTargetIn(rel string) string {
+// workspaceOrigin turns a pack path back into the file's path on the
+// exporting machine; the relocator decides where it lives now.
+func workspaceOrigin(rel, oldHome string) string {
 	rest := strings.TrimPrefix(rel, workspacePrefix)
-	home, _ := os.UserHomeDir()
 	if r, ok := strings.CutPrefix(rest, "~/"); ok {
-		return filepath.Join(home, filepath.FromSlash(r))
+		return filepath.Join(oldHome, filepath.FromSlash(r))
 	}
 	drive, r, _ := strings.Cut(rest, "/")
-	root := driveRoot(drive)
-	if !dirExists(root) {
-		return filepath.Join(home, drive, filepath.FromSlash(r))
-	}
-	return filepath.Join(root, filepath.FromSlash(r))
+	return filepath.Join(drive+`:\`, filepath.FromSlash(r))
 }
 
 type workspaceSet struct {

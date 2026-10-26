@@ -192,6 +192,9 @@ type Result struct {
 	FolderFiles    int      `json:"folderFiles"`    // files restored into them
 	Kept           int      `json:"kept"`           // files that already differed here, left alone
 	SkippedFolders []string `json:"skippedFolders"` // working folders too broad to pack
+	Outputs        int      `json:"outputs"`        // files written outside the working folders
+	OutputBytes    int64    `json:"outputBytes"`
+	Target         string   `json:"target"` // folder the files were put in
 	BackupDir      string   `json:"backupDir"`
 	Note           string   `json:"note"`
 }
@@ -261,9 +264,10 @@ func Export(app App, p Paths, out string, prog Progress) (*Result, error) {
 	}
 	home, _ := os.UserHomeDir()
 	info := packInfo{Version: 2, App: app, Machine: cfg.Machine, Created: time.Now(), Home: home}
-	inline := map[string][]byte{} // generated entries
-	keepIDs := map[string]bool{}  // conversations that go into the pack
-	var cwds []string             // and the folders they worked in
+	inline := map[string][]byte{}  // generated entries
+	keepIDs := map[string]bool{}   // conversations that go into the pack
+	sessCwd := map[string]string{} // and the folder each one worked in
+	var cwds []string              // and the folders they worked in
 	if app == AppClaude {
 		st := loadClaudeApp()
 		info.Removed = dropRemoved(files, st)
@@ -285,6 +289,7 @@ func Export(app App, p Paths, out string, prog Progress) (*Result, error) {
 				keepIDs[sid] = true
 				if m, ok := st.live[sid]; ok && m.Cwd != "" {
 					cwds = append(cwds, m.Cwd)
+					sessCwd[sid] = m.Cwd
 				}
 			}
 		}
@@ -305,6 +310,7 @@ func Export(app App, p Paths, out string, prog Progress) (*Result, error) {
 			for id := range vis.keep {
 				keepIDs[id] = true
 				cwds = append(cwds, vis.cwd[id])
+				sessCwd[id] = vis.cwd[id]
 			}
 		}
 		idx := filepath.Join(p.CodexDir, "session_index.jsonl")
@@ -328,6 +334,18 @@ func Export(app App, p Paths, out string, prog Progress) (*Result, error) {
 	}
 	info.SkippedFolders = ws.skipped
 	addConversationFiles(files, app, p, keepIDs)
+	// Files the conversations wrote elsewhere: transcript -> its working folder.
+	transcripts := map[string]string{}
+	for rel, f := range files {
+		if id := sessionID(app, rel); id != "" {
+			cwd := sessCwd[id]
+			if proj, _, ok := claudeSplit(rel); ok && cwd == "" {
+				cwd = info.Cwds[proj]
+			}
+			transcripts[f.abs] = cwd
+		}
+	}
+	outCount, outBytes := addOutputs(files, app, transcripts, ws.folders, p.ClaudeDir, p.CodexDir)
 	if len(files) == 0 {
 		return nil, fmt.Errorf("没有找到聊天记录（%s）", p.root(app))
 	}
@@ -401,7 +419,7 @@ func Export(app App, p Paths, out string, prog Progress) (*Result, error) {
 		sessions = len(info.CodexPlaces) // top-level threads, without sub-agents
 	}
 	return &Result{Path: out, Sessions: sessions, Files: len(keys), Bytes: st.Size(), Removed: info.Removed,
-		Folders: len(info.Workspaces), SkippedFolders: info.SkippedFolders}, nil
+		Folders: len(info.Workspaces), SkippedFolders: info.SkippedFolders, Outputs: outCount, OutputBytes: outBytes}, nil
 }
 
 // ---- import ----------------------------------------------------------------
@@ -443,7 +461,7 @@ type importPlan struct {
 	metas  []claudeMetaImport     // desktop-app list entries to add
 }
 
-func planClaude(entries []*zip.File, info packInfo, mover **pathMover) importPlan {
+func planClaude(entries []*zip.File, info packInfo, target string) (importPlan, *relocator) {
 	cwds := info.Cwds
 	if len(cwds) == 0 { // version 1 pack: read the transcripts
 		cands := map[string][]string{}
@@ -461,42 +479,23 @@ func planClaude(entries []*zip.File, info packInfo, mover **pathMover) importPla
 	// earlier move, is mapped to this machine's.
 	homes := []string{info.Home}
 	txCwd := map[string]string{} // first cwd recorded in each transcript
+	projOf := map[string]string{}
 	for _, f := range entries {
-		if _, rest, ok := claudeSplit(f.Name); ok && strings.HasSuffix(rest, ".jsonl") && !strings.Contains(rest, "/") {
+		if proj, rest, ok := claudeSplit(f.Name); ok && strings.HasSuffix(rest, ".jsonl") && !strings.Contains(rest, "/") {
+			sid := strings.TrimSuffix(rest, ".jsonl")
 			c := entryCwd(f)
-			txCwd[strings.TrimSuffix(rest, ".jsonl")] = c
+			txCwd[sid], projOf[sid] = c, proj
 			homes = append(homes, guessHome(c))
 		}
 	}
 	for _, c := range cwds {
 		homes = append(homes, guessHome(c))
 	}
-	for _, f := range entries {
-		if strings.HasPrefix(f.Name, claudeMetaPrefix) {
-			homes = append(homes, guessHome(metaCwd(f)))
-		}
+	type meta struct {
+		rel, sid, cwd string
+		obj           map[string]any
 	}
-	*mover = newPathMover(homes...)
-	m := *mover
-
-	projTo, rws := map[string]string{}, map[string]*lineRewriter{}
-	for proj, cwd := range cwds {
-		nc := m.ensure(m.move(cwd))
-		projTo[proj] = claudeProjectName(strings.TrimPrefix(nc, `\\?\`))
-		rw := &lineRewriter{}
-		rw.add(cwd, nc)
-		rws[proj] = rw
-	}
-	// A conversation with desktop-app metadata follows the folder recorded
-	// there, which can differ from the project directory it was saved in.
-	var metas []claudeMetaImport
-	sessTo, sessRw := map[string]string{}, map[string]*lineRewriter{}
-	projOf := map[string]string{}
-	for _, f := range entries {
-		if proj, rest, ok := claudeSplit(f.Name); ok && strings.HasSuffix(rest, ".jsonl") && !strings.Contains(rest, "/") {
-			projOf[strings.TrimSuffix(rest, ".jsonl")] = proj
-		}
-	}
+	var raw []meta
 	for _, f := range entries {
 		rest, ok := strings.CutPrefix(f.Name, claudeMetaPrefix)
 		if !ok {
@@ -509,18 +508,40 @@ func planClaude(entries []*zip.File, info packInfo, mover **pathMover) importPla
 		obj := map[string]any{}
 		err = json.NewDecoder(rc).Decode(&obj)
 		rc.Close()
-		sid, old := str(obj["cliSessionId"]), str(obj["cwd"])
-		if err != nil || sid == "" || old == "" {
-			continue
+		if sid, c := str(obj["cliSessionId"]), str(obj["cwd"]); err == nil && sid != "" && c != "" {
+			raw = append(raw, meta{path.Dir(rest), sid, c, obj})
+			homes = append(homes, guessHome(c))
 		}
-		nc := m.ensure(m.move(old))
-		sessTo[sid] = claudeProjectName(strings.TrimPrefix(nc, `\\?\`))
-		rw := &lineRewriter{}
-		rw.add(old, nc)
-		rw.add(cwds[projOf[sid]], nc)
-		rw.add(txCwd[sid], nc)
-		sessRw[sid] = rw
-		metas = append(metas, claudeMetaImport{rel: path.Dir(rest), obj: obj, sid: sid, cwd: nc})
+	}
+
+	r := newRelocator(target, newPathMover(homes...), info.Home)
+	for _, w := range info.Workspaces { // packed folders first: they own their names
+		r.place(w)
+	}
+	// A conversation follows the folder in its desktop-app metadata, which can
+	// differ from the project directory its transcript was saved in.
+	sessTo, sessNew := map[string]string{}, map[string]string{}
+	var metas []claudeMetaImport
+	for _, m := range raw {
+		nc := r.place(m.cwd)
+		sessTo[m.sid], sessNew[m.sid] = claudeProjectName(nc), nc
+		metas = append(metas, claudeMetaImport{rel: m.rel, obj: m.obj, sid: m.sid, cwd: nc})
+	}
+	projTo := map[string]string{}
+	for proj, cwd := range cwds {
+		projTo[proj] = claudeProjectName(r.place(cwd))
+	}
+	for sid, c := range txCwd {
+		if sessNew[sid] == "" { // listed conversations already have their folder
+			r.place(c)
+		}
+	}
+	rw := r.rewriter() // every moved folder, wherever a transcript mentions it
+	// A listed conversation keeps one folder: whatever its transcript recorded
+	// as the working folder now means the folder from its metadata.
+	sessRw := map[string]*lineRewriter{}
+	for sid, nc := range sessNew {
+		sessRw[sid] = rw.with([2]string{txCwd[sid], nc}, [2]string{cwds[projOf[sid]], nc})
 	}
 
 	local := loadClaudeApp()
@@ -529,58 +550,58 @@ func planClaude(entries []*zip.File, info packInfo, mover **pathMover) importPla
 		target: func(name string) (string, *lineRewriter) {
 			proj, rest, ok := claudeSplit(name)
 			to, mapped := projTo[proj]
-			rw := rws[proj]
+			lr := rw
 			if sid := claudeSessionOf(name); sessTo[sid] != "" {
-				to, mapped, rw = sessTo[sid], true, sessRw[sid]
+				to, mapped, lr = sessTo[sid], true, sessRw[sid]
 			}
 			if !ok || !mapped {
 				return name, nil
 			}
-			if !strings.HasSuffix(rest, ".jsonl") || rw == nil || rw.empty() {
-				rw = nil
+			if !strings.HasSuffix(rest, ".jsonl") || lr.empty() {
+				return "claude/projects/" + to + "/" + rest, nil
 			}
-			return "claude/projects/" + to + "/" + rest, rw
+			return "claude/projects/" + to + "/" + rest, lr
 		},
 		skip: func(name string) bool {
 			sid := claudeSessionOf(name)
 			return sid != "" && local.deleted[sid]
 		},
-	}
+	}, r
 }
 
-func planCodex(entries []*zip.File, info packInfo, mover **pathMover) (importPlan, map[string]string) {
-	// Each rollout's own working folder decides which home folders to map
-	// and which folders must exist afterwards.
-	cwdOf := map[string]string{}
+func planCodex(entries []*zip.File, info packInfo, target string) (importPlan, *relocator) {
 	homes := []string{info.Home}
+	var cwds []string
 	for _, f := range entries {
 		if strings.Contains(f.Name, "/rollout-") {
 			c := entryCwd(f)
-			cwdOf[f.Name] = c
+			cwds = append(cwds, c)
 			homes = append(homes, guessHome(c))
 		}
 	}
 	for _, pl := range info.CodexPlaces {
 		homes = append(homes, guessHome(pl.Root), guessHome(pl.Hint))
 	}
-	*mover = newPathMover(homes...)
-	m := *mover
-	var rw *lineRewriter
-	if len(m.oldHomes) > 0 {
-		// Working folders sit in these settings lines; Codex lists a thread
-		// under the folder from its latest thread_settings_applied. Message
-		// and tool lines stay as they were written.
-		rw = m.rewriter(`"type":"session_meta"`, `"type":"turn_context"`, `"type":"world_state"`, `"type":"thread_settings_applied"`)
+	r := newRelocator(target, newPathMover(homes...), info.Home)
+	for _, w := range info.Workspaces {
+		r.place(w)
 	}
+	for _, c := range cwds {
+		r.place(c)
+	}
+	for _, pl := range info.CodexPlaces {
+		r.place(pl.Root)
+	}
+	rw := r.rewriter()
 	return importPlan{
 		target: func(name string) (string, *lineRewriter) {
-			if rw != nil && strings.Contains(name, "/rollout-") {
+			if !rw.empty() && strings.Contains(name, "/rollout-") {
 				return name, rw
 			}
 			return name, nil
 		},
 		skip: func(string) bool { return false },
-	}, cwdOf
+	}, r
 }
 
 // metaCwd reads the working folder from a packed desktop-app metadata file.
@@ -597,12 +618,16 @@ func metaCwd(f *zip.File) string {
 	return m.Cwd
 }
 
-// Import merges a pack into this machine's history. Nothing is deleted: new
-// files are added, a file is replaced only when the pack's copy is longer
-// (sessions are append-only) and the old one is backed up first. Paths from
-// the exporting machine are mapped to this one, and missing working folders
-// are created so both apps list the conversations.
-func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
+// Import merges a pack into this machine. Conversations go back into the
+// apps' own folders; everything they worked with goes into target, the
+// folder the user picked, and the apps are pointed there. Nothing on this
+// machine is overwritten: transcripts are only replaced by a longer copy
+// (they are append-only) after a backup, and any other file that already
+// exists with different content is saved next to it under a new name.
+func Import(app App, p Paths, zipPath, target string, prog Progress) (*Result, error) {
+	if target == "" {
+		return nil, fmt.Errorf("没有选择存放项目文件的文件夹")
+	}
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return nil, fmt.Errorf("无法打开压缩包：%w", err)
@@ -618,12 +643,12 @@ func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
 		case f.FileInfo().IsDir() || f.Name == packInfoName:
 		case f.Name == "codex/session_index.jsonl":
 			index = f
-		case (strings.HasPrefix(f.Name, prefix) || strings.HasPrefix(f.Name, workspacePrefix)) && !strings.Contains(f.Name, ".."):
+		case (strings.HasPrefix(f.Name, prefix) || strings.HasPrefix(f.Name, workspacePrefix) || strings.HasPrefix(f.Name, outputPrefix)) && !strings.Contains(f.Name, ".."):
 			entries = append(entries, f)
 			total += int64(f.UncompressedSize64)
 		}
 	}
-	if len(entries) == 0 {
+	if len(entries) == 0 || !hasPrefixAny(entries, prefix) {
 		return nil, fmt.Errorf("%w: 这个压缩包里没有%s的聊天记录", ErrWrongApp, map[App]string{AppClaude: " Claude ", AppCodex: " ChatGPT Codex "}[app])
 	}
 	if app == AppCodex {
@@ -631,15 +656,17 @@ func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
 			return nil, ErrCodexRunning
 		}
 	}
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return nil, fmt.Errorf("无法创建文件夹 %s：%w", target, err)
+	}
 
 	info := readPackInfo(zr.File)
-	var mover *pathMover
 	var plan importPlan
-	var codexCwds map[string]string
+	var r *relocator
 	if app == AppClaude {
-		plan = planClaude(entries, info, &mover)
+		plan, r = planClaude(entries, info, target)
 	} else {
-		plan, codexCwds = planCodex(entries, info, &mover)
+		plan, r = planCodex(entries, info, target)
 	}
 
 	cfg := p.config(app)
@@ -655,7 +682,7 @@ func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
 		}
 	}
 
-	res := &Result{Path: zipPath}
+	res := &Result{Path: zipPath, Target: target}
 	ids, removed := map[string]bool{}, map[string]bool{}
 	backupRoot := filepath.Join(p.root(app), "chatmove-backup", time.Now().Format("20060102-150405"))
 	pw := &progressWriter{total: total, fn: prog}
@@ -665,7 +692,7 @@ func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
 			pw.add(size)
 			continue
 		}
-		if dst, ok := extraTarget(app, p, f.Name); ok {
+		if dst, ok := extraTarget(app, p, r, info.Home, f.Name); ok {
 			res.Files++
 			if err := restoreExtra(f, dst, pw, res); err != nil {
 				return nil, fmt.Errorf("%s: %w", f.Name, err)
@@ -740,19 +767,11 @@ func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
 				return nil, err
 			}
 		}
-		// Codex lists a thread only when its working folder exists here.
-		seen := map[string]bool{}
-		for _, c := range codexCwds {
-			if c = mover.move(c); c != "" && !seen[c] {
-				seen[c] = true
-				mover.ensure(c)
-			}
-		}
 		if res.Added+res.Updated > 0 {
 			if err := CodexReindex(cfg, io.Discard, false); err != nil {
 				res.Note = "记录已导入，但没能让 Codex 刷新列表（" + err.Error() + "）。"
 			} else if len(info.CodexPlaces) > 0 {
-				if _, err := registerCodexSidebar(p.CodexDir, info.CodexPlaces, mover, backupRoot); err != nil {
+				if _, err := registerCodexSidebar(p.CodexDir, info.CodexPlaces, r.place, backupRoot); err != nil {
 					res.Note = "记录已导入，但没能登记到 Codex 侧边栏（" + err.Error() + "）。"
 				} else {
 					res.BackupDir = backupRoot
@@ -769,10 +788,22 @@ func Import(app App, p Paths, zipPath string, prog Progress) (*Result, error) {
 			res.Note = "完全退出 Claude（包括右下角托盘图标）再重新打开，导入的对话就会出现在列表里。"
 		}
 	}
+	if err := r.save(); err != nil {
+		return nil, err
+	}
 	res.Folders = len(info.Workspaces)
-	res.CreatedDirs = mover.createdDirs()
+	res.CreatedDirs = r.created
 	sort.Strings(res.CreatedDirs)
 	return res, nil
+}
+
+func hasPrefixAny(files []*zip.File, prefix string) bool {
+	for _, f := range files {
+		if strings.HasPrefix(f.Name, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func fileCRC(p string) uint32 {
@@ -860,26 +891,46 @@ func filterIndex(b []byte, keep map[string]bool) []byte {
 	return out
 }
 
-// extraTarget places project files and per-conversation files.
-func extraTarget(app App, p Paths, name string) (string, bool) {
-	if strings.HasPrefix(name, workspacePrefix) {
-		return workspaceTarget(name), true
+// extraTarget places project files, other output files and per-conversation
+// files.
+func extraTarget(app App, p Paths, r *relocator, oldHome, name string) (string, bool) {
+	switch {
+	case strings.HasPrefix(name, workspacePrefix):
+		return r.place(workspaceOrigin(name, oldHome)), true
+	case strings.HasPrefix(name, outputPrefix):
+		return r.outputTarget(name), true
 	}
 	return conversationFileTarget(app, p, name)
 }
 
-// restoreExtra adds a project or conversation file that is missing here. A
-// file that already exists is the user's own copy and is never overwritten.
+// restoreExtra writes a project, output or conversation file. When a file
+// with different content is already there, the incoming copy is saved next
+// to it as "name (导入).ext" so both versions are kept.
 func restoreExtra(f *zip.File, dst string, pw *progressWriter, res *Result) error {
 	size := int64(f.UncompressedSize64)
 	if info, err := os.Stat(dst); err == nil {
-		if info.Size() == size {
+		if info.Size() == size && fileCRC(dst) == f.CRC32 {
 			res.Skipped++
-		} else {
-			res.Kept++
+			pw.add(size)
+			return nil
 		}
-		pw.add(size)
-		return nil
+		ext := filepath.Ext(dst)
+		base := strings.TrimSuffix(dst, ext)
+		for i := 1; ; i++ {
+			alt := base + " (导入)" + ext
+			if i > 1 {
+				alt = fmt.Sprintf("%s (导入 %d)%s", base, i, ext)
+			}
+			if st, err := os.Stat(alt); err != nil {
+				dst = alt
+				break
+			} else if st.Size() == size && fileCRC(alt) == f.CRC32 {
+				res.Skipped++
+				pw.add(size)
+				return nil
+			}
+		}
+		res.Kept++
 	}
 	tmp, n, err := extractTo(f, dst, nil, pw)
 	if err != nil {
@@ -894,4 +945,61 @@ func restoreExtra(f *zip.File, dst string, pw *progressWriter, res *Result) erro
 	res.FolderFiles++
 	res.Bytes += n
 	return nil
+}
+
+// PackSummary describes a pack before importing it.
+type PackSummary struct {
+	App      App       `json:"app"`
+	Machine  string    `json:"machine"`
+	Created  time.Time `json:"created"`
+	Sessions int       `json:"sessions"`
+	Folders  int       `json:"folders"`
+	Outputs  int       `json:"outputs"`
+	Bytes    int64     `json:"bytes"`
+}
+
+// ReadPack reads a pack's summary without importing anything.
+func ReadPack(zipPath string) (*PackSummary, error) {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, fmt.Errorf("无法打开压缩包：%w", err)
+	}
+	defer zr.Close()
+	info := readPackInfo(zr.File)
+	s := &PackSummary{App: info.App, Machine: info.Machine, Created: info.Created, Sessions: info.Sessions, Folders: len(info.Workspaces)}
+	if len(info.CodexPlaces) > 0 {
+		s.Sessions = len(info.CodexPlaces)
+	}
+	for _, f := range zr.File {
+		s.Bytes += int64(f.UncompressedSize64)
+		if strings.HasPrefix(f.Name, outputPrefix) {
+			s.Outputs++
+		}
+		if s.App == "" && strings.HasPrefix(f.Name, "claude/") {
+			s.App = AppClaude
+		} else if s.App == "" && strings.HasPrefix(f.Name, "codex/") {
+			s.App = AppCodex
+		}
+	}
+	return s, nil
+}
+
+// SuggestTarget proposes a new folder for imported files: on D: when this
+// machine has one, otherwise in the home folder, never one already in use.
+func SuggestTarget(app App) string {
+	name := map[App]string{AppClaude: "Claude 对话迁移", AppCodex: "ChatGPT 对话迁移"}[app]
+	root, _ := os.UserHomeDir()
+	if dirExists(`D:\`) {
+		root = `D:\`
+	}
+	p := filepath.Join(root, name)
+	for i := 2; nonEmptyDir(p) && !dirExists(filepath.Join(p, relocateMapName)) && !fileExists(filepath.Join(p, relocateMapName)); i++ {
+		p = filepath.Join(root, fmt.Sprintf("%s (%d)", name, i))
+	}
+	return p
+}
+
+func fileExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
 }

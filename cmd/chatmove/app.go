@@ -95,41 +95,68 @@ func (a *App) Export(app string) Outcome {
 	return Outcome{Result: res}
 }
 
-func (a *App) Import(app string) Outcome {
-	if !a.busy.CompareAndSwap(false, true) {
-		return Outcome{Code: "busy", Error: "上一个任务还没完成"}
-	}
-	defer a.busy.Store(false)
+// ImportPlan is what the guide page shows after a pack is picked.
+type ImportPlan struct {
+	Canceled bool              `json:"canceled"`
+	Error    string            `json:"error"`
+	Zip      string            `json:"zip"`
+	Pack     *core.PackSummary `json:"pack"`
+	Target   string            `json:"target"` // suggested folder for the files
+}
+
+// PickPack asks for the pack to import and proposes where its files go.
+// Nothing is written yet.
+func (a *App) PickPack(app string) ImportPlan {
 	in, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title:            "选择要导入的聊天记录压缩包",
 		DefaultDirectory: desktop(),
 		Filters:          zipFilter(),
 	})
 	if err != nil {
-		return Outcome{Error: err.Error()}
+		return ImportPlan{Error: err.Error()}
 	}
 	if in == "" {
-		return Outcome{Canceled: true}
+		return ImportPlan{Canceled: true}
 	}
-	return a.importFrom(app, in)
+	pack, err := core.ReadPack(in)
+	if err != nil {
+		return ImportPlan{Error: err.Error()}
+	}
+	if pack.App != "" && pack.App != parseApp(app) {
+		return ImportPlan{Error: "这个压缩包是从" + map[core.App]string{core.AppClaude: " Claude ", core.AppCodex: " ChatGPT "}[pack.App] + "导出的，请回到首页选对应的卡片。"}
+	}
+	return ImportPlan{Zip: in, Pack: pack, Target: core.SuggestTarget(parseApp(app))}
 }
 
-// RetryImport re-runs an import on a file the user already picked, e.g.
-// after closing Codex.
-func (a *App) RetryImport(app, path string) Outcome {
+// PickFolder lets the user choose (or create) the folder for imported files.
+func (a *App) PickFolder(current string) string {
+	start := filepath.Dir(current)
+	if !dirExists(start) {
+		start = desktop()
+	}
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:                "选一个新文件夹，对话用到的所有文件都会放在这里",
+		DefaultDirectory:     start,
+		CanCreateDirectories: true,
+	})
+	if err != nil || dir == "" {
+		return current
+	}
+	return dir
+}
+
+// ImportTo imports a pack, putting every file the conversations use under
+// target. It is also how the page retries after the user closes Codex.
+func (a *App) ImportTo(app, zip, target string) Outcome {
 	if !a.busy.CompareAndSwap(false, true) {
 		return Outcome{Code: "busy", Error: "上一个任务还没完成"}
 	}
 	defer a.busy.Store(false)
-	return a.importFrom(app, path)
-}
-
-func (a *App) importFrom(app, in string) Outcome {
 	runtime.EventsEmit(a.ctx, "started", "import")
-	res, err := core.Import(parseApp(app), a.paths, in, a.progress)
+	res, err := core.Import(parseApp(app), a.paths, zip, target, a.progress)
 	switch {
 	case errors.Is(err, core.ErrCodexRunning):
-		return Outcome{Code: "codex-running", Path: in}
+		return Outcome{Code: "codex-running", Path: zip}
 	case errors.Is(err, core.ErrWrongApp):
 		return Outcome{Code: "wrong-app", Error: strings.TrimPrefix(err.Error(), core.ErrWrongApp.Error()+": ")}
 	case err != nil:
