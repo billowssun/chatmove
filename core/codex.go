@@ -25,8 +25,9 @@ var ErrCodexRunning = errors.New("codex is running")
 // runningCodexCheck is swapped out in tests.
 var runningCodexCheck = RunningCodex
 
-// RunningCodex returns any codex.exe processes: the desktop app, the CLI and
-// the VS Code extension's app-server all run under that name. Helpers such as
+// RunningCodex returns any Codex processes: codex.exe (the desktop app's
+// backend, the CLI and the VS Code extension's app-server) and the desktop
+// window, ChatGPT.exe, which restarts codex.exe on its own. Helpers such as
 // codex-windows-sandbox-service.exe can outlive the app and are ignored.
 func RunningCodex() ([]string, error) {
 	out, err := exec.Command("tasklist", "/FO", "CSV", "/NH").Output()
@@ -39,7 +40,7 @@ func RunningCodex() ([]string, error) {
 	}
 	var found []string
 	for _, r := range rows {
-		if len(r) > 1 && strings.EqualFold(r[0], "codex.exe") {
+		if len(r) > 1 && (strings.EqualFold(r[0], "codex.exe") || strings.EqualFold(r[0], "ChatGPT.exe")) {
 			found = append(found, r[0]+" (pid "+r[1]+")")
 		}
 	}
@@ -56,9 +57,8 @@ type rpcClient struct {
 func startAppServer(cfg *Config) (*rpcClient, error) {
 	bin := cfg.CodexCommand
 	if bin == "" {
-		var err error
-		if bin, err = exec.LookPath("codex"); err != nil {
-			return nil, fmt.Errorf("codex CLI not found in PATH (set codex_command in the config)")
+		if bin = findCodex(); bin == "" {
+			return nil, fmt.Errorf("找不到 codex.exe（Codex 桌面版或命令行都没有装）")
 		}
 	}
 	cmd := exec.Command(bin, "app-server")
@@ -230,4 +230,20 @@ func CodexReindex(cfg *Config, log io.Writer, force bool) error {
 	}
 	fmt.Fprintf(log, "codex reindex: %d threads in Codex, %d titles restored\n", len(threads), restored)
 	return nil
+}
+
+// findCodex locates a codex executable: the CLI on PATH, or the copy the
+// Codex desktop app keeps under %LOCALAPPDATA%OpenAICodexin<build>.
+func findCodex() string {
+	if p, err := exec.LookPath("codex"); err == nil {
+		return p
+	}
+	matches, _ := filepath.Glob(filepath.Join(os.Getenv("LOCALAPPDATA"), "OpenAI", "Codex", "bin", "*", "codex.exe"))
+	best, bestTime := "", time.Time{}
+	for _, m := range matches {
+		if info, err := os.Stat(m); err == nil && info.ModTime().After(bestTime) {
+			best, bestTime = m, info.ModTime()
+		}
+	}
+	return best
 }

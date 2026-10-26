@@ -10,7 +10,40 @@
 2. 选导出或导入。
 3. 选择保存位置，或者要导入的 .zip，剩下的自动完成。
 
-导入是合并：新文件直接加入；已有的文件只在压缩包里那份更长时才替换，旧文件先备份到 `chatmove-backup/`；10 分钟内还在写入的文件不碰。导入 Codex 前需要先退出 Codex，导入后会自动 reindex。
+目标是在另一台电脑上原样接着用，所以一个对话会连同这些一起搬：
+
+| 内容 | Claude | ChatGPT Codex |
+|---|---|---|
+| 聊天记录 | `~/.claude/projects` | `~/.codex/sessions`、`archived_sessions` |
+| 列表信息 | 桌面版会话清单 `local_*.json` | 侧边栏位置（无项目对话或所属项目）、标题 |
+| 项目文件 | 对话的工作文件夹 | 对话的工作文件夹 |
+| 其他 | 文件改动历史 `file-history` | 生成的图片、上传的附件 |
+
+**只搬侧边栏里还在的对话。** 已删除、已归档，或者已经从列表里移除的对话不打包。
+
+- Claude：以桌面版的会话清单为准。
+- Codex：一个对话要在数据库里、没有归档、有预览，并且是无项目对话、被分配到项目，或者工作目录是某个项目根目录，才算还在列表里。
+
+**导入时：**
+
+- **路径**：旧电脑的 `C:\Users\<旧用户名>` 换成新电脑的用户目录；记录里出现过的旧用户目录都会换掉。
+  - Claude 改的是记录里的 `cwd`。
+  - Codex 改的是 `session_meta`、`turn_context`、`world_state`、`thread_settings_applied` 这几类记录行；对话和工具调用的内容不改。
+- **项目文件**：放回原来的路径。新电脑上没有那个盘符时，放到 `<用户目录>\<盘符>\...` 下。
+- **已有文件不覆盖**：
+  - 聊天记录只在压缩包里那份更长时才替换，旧文件先备份到 `chatmove-backup/`。
+  - 项目文件只补缺失的，已有的一律不覆盖。
+  - 10 分钟内还在写入的文件不碰。
+- **Claude**：写入会话清单后，完全退出 Claude 再打开，导入的对话就会出现在列表里。
+- **Codex**：要先完全退出（`codex.exe` 和桌面版界面 `ChatGPT.exe`）。导入时会做三件事：
+  1. 用 Codex 自带的 `codex.exe` 登记对话，找不到命令行版时用桌面版自带的那个。
+  2. 按原来的侧边栏位置，把对话登记成无项目对话或归进项目，没有的项目会新建。
+  3. 改动前备份 `state_5.sqlite` 和 `.codex-global-state.json`。
+
+**不打包的内容：**
+
+- `node_modules`、`.venv` 这类依赖文件夹：在新电脑上重新安装依赖即可。
+- 开在磁盘根目录、用户目录、桌面、文档、下载等大文件夹里的对话，不打包整个文件夹，结果页会列出来。
 
 构建命令：
 
@@ -23,7 +56,10 @@ go build -ldflags "-s -w" -o chatsync.exe ./cmd/chatsync
 
 ```
 CHATMOVE_REAL_TEST=1 go test ./core -run TestRealRoundTrip -v
+CHATMOVE_MIGRATE_TEST=1 go test ./core -run TestMigrateToNewMachine -v
 ```
+
+第二个测试会把本机记录导出后，导入到一个模拟的新电脑里：用户目录、AppData、各个盘符都指向临时文件夹。然后检查四件事：路径有没有换对、Claude 会话清单和记录位置是否一致、Codex 侧边栏能显示多少条、再导入一次是否没有变化。
 
 产品网页在 `website/index.html`，朋友圈文案在 `朋友圈文案.md`。
 

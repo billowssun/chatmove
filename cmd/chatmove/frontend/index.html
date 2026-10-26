@@ -179,7 +179,7 @@ header { display: flex; align-items: center; gap: 14px; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 20px; min-width: 104px; box-shadow: var(--shadow); }
 .stat b { display: block; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .stat span { font-size: 12px; color: var(--text-2); }
-.note { margin-top: 16px; font-size: 12.5px; color: var(--warn); max-width: 520px; line-height: 1.6; }
+.note { margin-top: 16px; font-size: 12.5px; color: var(--warn); max-width: 560px; line-height: 1.7; white-space: pre-line; word-break: break-all; }
 .buttons { display: flex; gap: 12px; margin-top: 26px; }
 .btn { padding: 11px 22px; border-radius: 12px; font-size: 14px; font-weight: 560; transition: transform .15s, background .2s, box-shadow .2s; }
 .btn:active { transform: scale(.97); }
@@ -249,12 +249,12 @@ footer svg { width: 13px; height: 13px; }
         <button class="action" data-do="export">
           <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 14v4a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-4"/></svg></div>
           <h3>导出</h3>
-          <p>把这台电脑上的聊天记录打包成一个 .zip 文件，方便拷到新电脑、U 盘或网盘。</p>
+          <p>把聊天记录、对话用到的项目文件和生成的图片打包成一个 .zip 文件，拷到新电脑就能接着用。</p>
         </button>
         <button class="action" data-do="import">
           <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 14v4a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-4"/></svg></div>
           <h3>导入</h3>
-          <p>选择之前导出的 .zip 文件，合并进这台电脑。已有的对话不会被删除。</p>
+          <p>选择之前导出的 .zip 文件，对话和项目文件放回原来的位置。这台电脑上已有的文件不会被覆盖。</p>
         </button>
       </div>
     </section>
@@ -289,7 +289,7 @@ footer svg { width: 13px; height: 13px; }
 <script>
 const APPS = {
   claude: { name: "Claude", sub: "Claude Code 模式", unit: "个对话" },
-  codex: { name: "ChatGPT", sub: "Codex 模式", unit: "个会话（含子任务）" },
+  codex: { name: "ChatGPT", sub: "Codex 模式", unit: "个对话" },
 };
 const ICONS = {
   ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -378,7 +378,7 @@ function handle(o, retryPath) {
   if (o.code === "codex-running") {
     result({
       kind: "warn", title: "请先退出 Codex",
-      sub: "导入时需要 Codex 完全关闭（包括 VS Code 里的 Codex 插件），这样导入的会话才能出现在列表里。关掉之后点重试即可，不用重新选文件。",
+      sub: "导入时要把对话登记进 Codex 的列表，需要先完全退出 Codex：桌面版（右下角托盘也要退出）和 VS Code 里的 Codex 插件都要关掉。关掉之后点重试即可，不用重新选文件。",
       buttons: [button("返回", "ghost", () => show("choose")), button("我已退出，重试", "primary", () => run("import", o.path))],
     });
     return;
@@ -392,18 +392,32 @@ function handle(o, retryPath) {
   }
   const r = o.result;
   if (mode === "export") {
+    const stats = [[r.sessions, "个对话"], [r.folders, "个项目文件夹"], [fmt(r.bytes), "压缩包大小"]];
+    const notes = [];
+    if (r.removed) notes.push(`${r.removed} 个你已经移除的对话没有打包。`);
+    const broad = r.skippedFolders || [];
+    if (broad.length) notes.push(`有对话直接开在 ${broad.slice(0, 2).join("、")}${broad.length > 2 ? " 等" : ""} 这类大文件夹里，整个文件夹没有打包，需要的文件请自己拷过去。`);
+    notes.push("node_modules、.venv 这类依赖文件夹没有打包，在新电脑上重新安装依赖即可。");
     result({
       kind: "ok", title: "导出完成", sub: r.path,
-      stats: [[r.sessions, name === "Claude" ? "个对话" : "个会话"], [fmt(r.bytes), "压缩包大小"]],
+      stats, note: notes.join("\n"),
       buttons: [button("在文件夹中显示", "ghost", () => api().Reveal(r.path)), button("完成", "primary", home)],
     });
   } else {
     const nothing = r.added + r.updated === 0;
+    const notes = [];
+    if (r.note) notes.push(r.note);
+    const dirs = r.createdDirs || [];
+    if (dirs.length) notes.push(`这台电脑上没有原来的项目文件夹，已新建 ${dirs.length} 个空文件夹：${dirs.slice(0, 3).join("、")}${dirs.length > 3 ? " 等" : ""}。`);
+    if (r.folderFiles) notes.push(`项目文件已还原到原来的位置，共 ${r.folderFiles} 个文件。`);
+    if (r.kept) notes.push(`${r.kept} 个项目文件这台电脑上已经有不同的版本，保留了你现有的，没有覆盖。`);
+    if (r.removed) notes.push(`${r.removed} 个对话在这台电脑上已经被你移除过，没有再导入。`);
+    if (r.backupDir) notes.push(`改动前的文件已备份到 ${r.backupDir}`);
     result({
       kind: "ok", title: nothing ? "已经是最新的了" : "导入完成",
-      sub: nothing ? "压缩包里的对话这台电脑上都已经有了。" : `重新打开 ${name} 就能看到导入的对话。`,
-      stats: [[r.added, "新增文件"], [r.updated, "更新文件"], [r.skipped, "已存在，跳过"]],
-      note: r.note || (r.backupDir ? `被更新的旧文件已备份到 ${r.backupDir}` : ""),
+      sub: nothing ? "压缩包里的对话这台电脑上都已经有了。" : `共 ${r.sessions} 个对话。`,
+      stats: [[r.sessions, "个对话"], [r.folders, "个项目文件夹"], [r.added + r.updated, "个文件写入"], [r.skipped, "个已存在"]],
+      note: notes.join("\n"),
       buttons: [button("完成", "primary", home)],
     });
   }
