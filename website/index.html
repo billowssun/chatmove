@@ -252,12 +252,12 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
     <div>
       <p class="eyebrow">Claude Code · ChatGPT Codex</p>
       <h1>换电脑，<br><span class="hl">AI 不失忆</span>。</h1>
-      <p class="lede">你和 AI 聊了几百轮的项目上下文，都存在旧电脑的隐藏文件夹里。对话搬家把它们打包成一个文件，到新电脑上点一下就回来了，还能接着聊。</p>
+      <p class="lede">你和 AI 聊了几百轮的项目上下文，都存在旧电脑的隐藏文件夹里。对话搬家把对话连同项目文件一起打包成一个文件，到新电脑上选个文件夹，点一下就回来了，还能接着聊。</p>
       <div class="cta">
         <a class="btn solid" href="#get"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>获取 Windows 版</a>
         <a class="btn line" href="#route">看看怎么用</a>
       </div>
-      <p class="specs"><span>单文件 · 免安装</span><span>约 11 MB</span><span>全程离线</span></p>
+      <p class="specs"><span>单文件 · 免安装</span><span>约 15 MB</span><span>全程离线</span></p>
     </div>
 
     <div class="shot" aria-label="对话搬家主界面">
@@ -272,11 +272,11 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
           <div class="app-cards">
             <div class="app-card">
               <div class="ic" style="background:linear-gradient(145deg,#d97757,#b9573a)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5c.5 0 .9.4 1 .9l.9 4.6c.2.9.9 1.6 1.8 1.8l4.6.9c.5.1.9.5.9 1s-.4.9-.9 1l-4.6.9c-.9.2-1.6.9-1.8 1.8l-.9 4.6c-.1.5-.5.9-1 .9s-.9-.4-1-.9l-.9-4.6c-.2-.9-.9-1.6-1.8-1.8l-4.6-.9c-.5-.1-.9-.5-.9-1s.4-.9.9-1l4.6-.9c.9-.2 1.6-.9 1.8-1.8l.9-4.6c.1-.5.5-.9 1-.9z"/></svg></div>
-              <b>Claude</b><small>Claude Code 模式的本地对话</small><em>9 个对话 · 210 MB</em>
+              <b>Claude</b><small>Claude Code 模式的本地对话</small><em>9 个对话 · 206 MB</em>
             </div>
             <div class="app-card">
               <div class="ic" style="background:linear-gradient(145deg,#1f8f6f,#0f644e)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12.5 17H19"/></svg></div>
-              <b>ChatGPT</b><small>Codex 模式的本地对话</small><em>280 个会话 · 2.46 GB</em>
+              <b>ChatGPT</b><small>Codex 模式的本地对话</small><em>239 个对话 · 2.42 GB</em>
             </div>
           </div>
           <p class="app-foot">记录只在本机和你选择的文件之间移动，不经过任何服务器</p>
@@ -284,7 +284,7 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
       </div>
       <div class="tag" aria-hidden="true">
         <strong>小心轻放</strong>
-        <dl><dt>FROM</dt><dd>旧电脑</dd><dt>TO</dt><dd>新电脑</dd><dt>内含</dt><dd>289 段对话</dd></dl>
+        <dl><dt>FROM</dt><dd>旧电脑</dd><dt>TO</dt><dd>新电脑</dd><dt>内含</dt><dd>248 段对话</dd></dl>
       </div>
     </div>
   </div>
@@ -295,8 +295,8 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
     <div class="sec-head">
       <p class="eyebrow">箱子里装了什么</p>
       <div>
-        <h2>只搬对话，不碰账号</h2>
-        <p>两个助手都把聊天记录存在你自己的电脑上。对话搬家只打包对话本身，登录凭证、密钥和配置一律不动。</p>
+        <h2>侧边栏里有的，原样搬过去</h2>
+        <p>只搬两个助手侧边栏里还在的对话，已删除、已归档的不带。每个对话连同它用到的项目文件、生成的图片和附件一起打包；登录凭证、密钥和配置一律不动。</p>
       </div>
     </div>
     <div class="manifest">
@@ -304,8 +304,8 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
         <span class="tape" aria-hidden="true"></span>
         <header><h3><i></i>Claude</h3><span class="mono">~/.claude</span></header>
         <div class="rows">
-          <div class="row"><b>每个对话的完整记录</b><span class="st in">打包</span><code>projects/&lt;项目&gt;/&lt;对话ID&gt;.jsonl</code></div>
-          <div class="row"><b>项目记忆与对话标题</b><span class="st in">打包</span><code>projects/&lt;项目&gt;/memory/*.md</code></div>
+          <div class="row"><b>对话记录与会话列表</b><span class="st in">打包</span><code>projects/&lt;项目&gt;/&lt;对话ID&gt;.jsonl · 会话清单 · 项目记忆</code></div>
+          <div class="row"><b>项目文件与其他产出文件</b><span class="st in">打包</span><code>对话的工作文件夹 · AI 写到别处的文件 · 文件改动历史</code></div>
           <div class="row"><b>登录状态与设置</b><span class="st out">不碰</span><code>.credentials · settings.json</code></div>
         </div>
       </article>
@@ -313,9 +313,9 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
         <span class="tape" aria-hidden="true"></span>
         <header><h3><i></i>ChatGPT Codex</h3><span class="mono">~/.codex</span></header>
         <div class="rows">
-          <div class="row"><b>会话记录（含已压缩、已归档的）</b><span class="st in">打包</span><code>sessions/2026/10/23/rollout-*.jsonl.zst</code></div>
-          <div class="row"><b>对话标题</b><span class="st in">打包，导入后恢复</span><code>session_index.jsonl</code></div>
-          <div class="row"><b>登录状态、密钥与数据库</b><span class="st out">不碰</span><code>auth.json · secrets/ · *.sqlite</code></div>
+          <div class="row"><b>对话记录、侧边栏位置与标题</b><span class="st in">打包，导入后恢复</span><code>sessions/2026/10/23/rollout-*.jsonl.zst · 项目归属</code></div>
+          <div class="row"><b>项目文件、生成的图片和附件</b><span class="st in">打包</span><code>对话的工作文件夹 · generated_images/ · attachments/</code></div>
+          <div class="row"><b>登录状态、密钥与数据库</b><span class="st out">不碰</span><code>auth.json · secrets/ · config.toml</code></div>
         </div>
       </article>
     </div>
@@ -328,7 +328,7 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
       <p class="eyebrow">怎么搬</p>
       <div>
         <h2>三步，第二步你最熟</h2>
-        <p>界面只有两个按钮：Claude 和 ChatGPT。选好以后，导出还是导入，再挑个位置，剩下的自动完成。</p>
+        <p>界面只有两个按钮：Claude 和 ChatGPT。选好以后，导出还是导入，再挑个位置，剩下的自动完成。导入时会一步步引导你选一个新文件夹。</p>
       </div>
     </div>
     <div class="route">
@@ -342,13 +342,13 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
         <div class="n">2</div>
         <h3>把文件拷过去</h3>
         <p>U 盘、网盘、微信传文件、局域网共享，用什么都行。</p>
-        <span class="mono">141 MB → 新电脑桌面</span>
+        <span class="mono">180 MB → 新电脑桌面</span>
       </div>
       <div class="stop">
         <div class="n">3</div>
         <h3>在新电脑上导入</h3>
-        <p>选"导入"，点那个 .zip。完成后重新打开 Claude 或 Codex，之前的对话都在。</p>
-        <span class="mono">新增 25 · 更新 0 · 跳过 0</span>
+        <p>选"导入"，点那个 .zip，再选一个新文件夹。对话用到的所有文件都放进这个文件夹，重新打开 Claude 或 Codex 就能接着用。</p>
+        <span class="mono">D:\Claude 对话迁移\my-app\…</span>
       </div>
     </div>
   </div>
@@ -367,11 +367,11 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
       </div>
       <div class="promise">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V7z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
-        <div><h3>不删、不乱覆盖</h3><p>导入是合并：新对话直接加进来，已有的对话只在压缩包里那份更完整时才更新，旧文件先备份。</p></div>
+        <div><h3>不碰你原有的文件</h3><p>所有内容放进你新选的文件夹，这台电脑上原有的东西不会被改动；同名文件内容不同时，两份都留着。</p></div>
       </div>
       <div class="promise">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l2 2 3-4"/></svg>
-        <div><h3>Codex 标题跟着走</h3><p>Codex 的对话列表和改过的标题存在它自己的数据库里。导入后会让 Codex 自己重新扫描，把标题恢复回来。</p></div>
+        <div><h3>列表原样回来</h3><p>Claude 的会话列表、Codex 的项目分组和改过的标题，都按旧电脑的样子登记好，路径自动指向新文件夹。</p></div>
       </div>
       <div class="promise">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -393,16 +393,20 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
         <p>记录里大约九成的体积是图片。浏览器截图、电脑操作截图这些都以 base64 文本直接存在会话文件里，而且同一张截图常被记录不止一次。真正的文字对话只占一小部分。压缩包几乎不会变小，因为图片本来就压缩过。</p>
       </details>
       <details>
-        <summary>导入后 Claude 桌面版侧边栏里看不到？</summary>
-        <p>Claude 桌面版的侧边栏由它自己的一份会话清单驱动，这一版还不会写入那份清单。对话本身已经在了：在终端里进入同一个项目文件夹，运行 <code>claude --resume</code> 就能找到并接着聊。</p>
+        <summary>导入以后还要做什么？</summary>
+        <p>Claude：完全退出（包括右下角托盘图标）再重新打开，导入的对话就在列表里。Codex：导入时会自动登记，打开就能看到。项目里如果用到依赖（<code>node_modules</code>、<code>.venv</code>），需要在新文件夹里重新安装一次。</p>
       </details>
       <details>
-        <summary>两台电脑上的项目路径不一样怎么办？</summary>
-        <p>Claude Code 按项目的完整路径归类对话。旧电脑上是 <code>D:\projects\my-app</code>，新电脑上也放在同样的路径最省事。路径不同的话，对话仍会被导入，只是要在原路径下才能续聊；命令行版 chatsync 支持路径映射。</p>
+        <summary>项目原来分散在不同的盘，搬过来放在哪？</summary>
+        <p>都放进导入时你选的那个文件夹，每个项目一个子文件夹，比如 <code>D:\Claude 对话迁移\my-app</code>。对话会自动指向新位置，不用管旧电脑上是什么路径。只有项目里写死的旧绝对路径需要自己改一下。</p>
+      </details>
+      <details>
+        <summary>AI 存到桌面或别的文件夹的文件也会搬吗？</summary>
+        <p>会。AI 用写文件工具保存到工作文件夹外面的文件（比如导出到桌面的视频、报告），会从聊天记录里找出来，放进新文件夹的「其他产出文件」里。由脚本间接生成、记录里没写路径的文件找不到，需要自己拷。</p>
       </details>
       <details>
         <summary>导入 Codex 时提示"请先退出 Codex"？</summary>
-        <p>Codex 开着时会锁住自己的列表。把 Codex 桌面版和 VS Code 里的 Codex 插件都关掉，点"我已退出，重试"即可，不用重新选文件。</p>
+        <p>导入时要把对话登记进 Codex 的列表，需要 Codex 完全退出。把 Codex 桌面版（包括托盘图标）和 VS Code 里的 Codex 插件都关掉，点"我已退出，重试"即可，不用重新选文件。</p>
       </details>
       <details>
         <summary>会把我的登录信息一起带走吗？</summary>
@@ -426,11 +430,11 @@ footer .wrap { padding-block: 28px 40px; border-top: 1px solid var(--rule); disp
       </div>
       <div class="r">
         <div><span>系统</span>Windows 10 / 11</div>
-        <div><span>大小</span>约 11 MB</div>
+        <div><span>大小</span>约 15 MB</div>
         <div><span>支持</span>Claude Code · ChatGPT Codex</div>
         <div><span>联网</span>不需要</div>
-        <a class="btn dl" href="/chatmove-windows-v1.0.0.exe" download="对话搬家.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>下载 对话搬家.exe</a>
-        <p class="pending">v1.0.0 · 首次运行如果出现"Windows 已保护你的电脑"，点"更多信息"→"仍要运行"。</p>
+        <a class="btn dl" href="/chatmove-windows-v1.1.0.exe" download="对话搬家.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>下载 对话搬家.exe</a>
+        <p class="pending">v1.1.0 · 首次运行如果出现"Windows 已保护你的电脑"，点"更多信息"→"仍要运行"。</p>
       </div>
     </div>
   </div>

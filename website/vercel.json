@@ -1,7 +1,7 @@
 {
   "headers": [
     {
-      "source": "/chatmove-windows-v1.0.0.exe",
+      "source": "/chatmove-windows-v1.1.0.exe",
       "headers": [
         { "key": "Content-Type", "value": "application/octet-stream" },
         { "key": "Content-Disposition", "value": "attachment; filename=\"chatmove.exe\"; filename*=UTF-8''%E5%AF%B9%E8%AF%9D%E6%90%AC%E5%AE%B6.exe" }
