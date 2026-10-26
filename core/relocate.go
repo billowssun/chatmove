@@ -33,11 +33,12 @@ type relocator struct {
 	m         map[string]string // lower(old folder) -> new folder
 	olds      []string          // old folders, for prefix lookups
 	used      map[string]bool   // lower(new folder)
+	active    map[string]bool   // lower(old folder) placed by this import
 	created   []string
 }
 
 func newRelocator(target string, mover *pathMover, oldHome string) *relocator {
-	r := &relocator{target: filepath.Clean(target), mover: mover, m: map[string]string{}, used: map[string]bool{}}
+	r := &relocator{target: filepath.Clean(target), mover: mover, m: map[string]string{}, used: map[string]bool{}, active: map[string]bool{}}
 	for _, h := range append(append([]string{oldHome}, mover.oldHomes...), mover.newHome) {
 		if h != "" {
 			r.chatRoots = append(r.chatRoots, filepath.Join(h, "Documents", "Codex"))
@@ -81,6 +82,7 @@ func nonEmptyDir(p string) bool {
 // assign gives an old folder its own new folder under the target.
 func (r *relocator) assign(old string) string {
 	if nw, ok := r.m[strings.ToLower(old)]; ok {
+		r.active[strings.ToLower(old)] = true
 		return nw
 	}
 	var nw string
@@ -106,6 +108,7 @@ func (r *relocator) assign(old string) string {
 		}
 	}
 	r.remember(old, nw)
+	r.active[strings.ToLower(old)] = true
 	return nw
 }
 
@@ -121,9 +124,11 @@ func (r *relocator) place(p string) string {
 	sort.Slice(r.olds, func(i, j int) bool { return len(r.olds[i]) > len(r.olds[j]) })
 	for _, old := range r.olds {
 		if strings.EqualFold(clean, old) {
+			r.active[strings.ToLower(old)] = true
 			return r.m[strings.ToLower(old)]
 		}
 		if rest, ok := cutPrefixFold(clean, old+`\`); ok {
+			r.active[strings.ToLower(old)] = true
 			return filepath.Join(r.m[strings.ToLower(old)], rest)
 		}
 	}
@@ -147,7 +152,15 @@ func (r *relocator) rewriter(only ...string) *lineRewriter {
 	for _, o := range only {
 		lr.only = append(lr.only, []byte(o))
 	}
-	olds := append([]string(nil), r.olds...)
+	// Only folders this pack uses: the map file may also hold folders from
+	// other imports into the same target, and rewriting with those would make
+	// the result depend on what was imported before.
+	var olds []string
+	for _, o := range r.olds {
+		if r.active[strings.ToLower(o)] {
+			olds = append(olds, o)
+		}
+	}
 	sort.Slice(olds, func(i, j int) bool { return len(olds[i]) > len(olds[j]) })
 	for _, old := range olds {
 		lr.addPath(old, r.m[strings.ToLower(old)])

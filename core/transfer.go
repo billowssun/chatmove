@@ -682,6 +682,18 @@ func Import(app App, p Paths, zipPath, target string, prog Progress) (*Result, e
 		}
 	}
 
+	// A conversation saved under two project folders on the old machine lands
+	// in one place here; keep its longest copy so re-importing is stable.
+	longest := map[string]*zip.File{}
+	for _, f := range entries {
+		if strings.HasPrefix(f.Name, "claude/projects/") {
+			rel, _ := plan.target(f.Name)
+			if cur := longest[rel]; cur == nil || f.UncompressedSize64 > cur.UncompressedSize64 {
+				longest[rel] = f
+			}
+		}
+	}
+
 	res := &Result{Path: zipPath, Target: target}
 	ids, removed := map[string]bool{}, map[string]bool{}
 	backupRoot := filepath.Join(p.root(app), "chatmove-backup", time.Now().Format("20060102-150405"))
@@ -709,6 +721,10 @@ func Import(app App, p Paths, zipPath, target string, prog Progress) (*Result, e
 			ids[id] = true
 		}
 		rel, rw := plan.target(f.Name)
+		if l := longest[rel]; l != nil && l != f {
+			pw.add(size) // a shorter duplicate of the same conversation
+			continue
+		}
 		dst, ok := m.localPath(rel)
 		if !ok {
 			pw.add(size)
