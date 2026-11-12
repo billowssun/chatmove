@@ -1,3 +1,7 @@
+<!-- project-overview:start -->
+> **项目简介**：Claude Code 与 Codex 本地聊天迁移工具，提供桌面导入导出，以及命令行 WebDAV 增量同步。
+<!-- project-overview:end -->
+
 # chatsync
 
 把 Claude Code 和 Codex 的本地聊天记录增量同步到 WebDAV（坚果云、Nextcloud、群晖、Alist 等），也可以一键导出成 zip。单个 exe，无依赖。
